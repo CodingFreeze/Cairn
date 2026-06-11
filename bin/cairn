@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cairn_core import board, resolve, status, vaultio, handoff, reconcile
 from cairn_core import boarddoctor, contractcmd, dismisscmd, readiness
-from cairn_core import mergeflow, runloop, synccmd
+from cairn_core import mergeflow, runloop, synccmd, vaultcompact
 from cairn_core import init as initmod
 from cairn_core import speccmd
 from cairn_core.safepath import assert_safe_root
@@ -92,12 +92,12 @@ def cmd_board(args):
 
 def cmd_vault(args):
     d = _require_dir()
+    # ValueError (e.g. unknown vault name) is mapped to `error: ...` by main().
     if args.action == "append":
-        try:
-            written = vaultio.append(d, args.file, args.text)
-        except ValueError as exc:
-            sys.exit(f"error: {exc}")
-        print("ok" if written else "skipped (duplicate)")
+        print("ok" if vaultio.append(d, args.file, args.text)
+              else "skipped (duplicate)")
+    elif args.action == "compact":
+        print(vaultcompact.run(d, args.file, keep=args.keep, apply=args.apply))
 
 
 def cmd_handoff(args):
@@ -256,19 +256,19 @@ def build_parser():
     pv = sub.add_parser("vault")
     vsub = pv.add_subparsers(dest="action", required=True)
     va = vsub.add_parser("append"); va.add_argument("file"); va.add_argument("text")
+    vc = vsub.add_parser("compact"); vc.add_argument("file")
+    vc.add_argument("--keep", type=int, default=50); vc.add_argument("--apply", action="store_true")
     pv.set_defaults(func=cmd_vault)
     sub.add_parser("handoff").set_defaults(func=cmd_handoff)
     pr = sub.add_parser("recall"); pr.add_argument("query")
     pr.add_argument("--scope", default=None); pr.add_argument("--limit", type=int, default=20)
     pr.set_defaults(func=cmd_recall)
     pd = sub.add_parser("dismiss")
-    pd.add_argument("candidates")  # JSON array of {"kind","text"}
-    pd.set_defaults(func=cmd_dismiss)
+    pd.add_argument("candidates"); pd.set_defaults(func=cmd_dismiss)  # JSON array of {"kind","text"}
     sub.add_parser("harvest-candidates").set_defaults(func=cmd_harvest_candidates)
     pc = sub.add_parser("classify"); pc.add_argument("id")
     pc.add_argument("--base", default="main"); pc.set_defaults(func=cmd_classify)
-    pr2 = sub.add_parser("reconcile")
-    pr2.add_argument("--base", default="main"); pr2.set_defaults(func=cmd_reconcile)
+    pr2 = sub.add_parser("reconcile"); pr2.add_argument("--base", default="main"); pr2.set_defaults(func=cmd_reconcile)
     pm = sub.add_parser("merge"); pm.add_argument("id")
     pm.add_argument("--base", default="main"); pm.set_defaults(func=cmd_merge)
     pry = sub.add_parser("ready"); pry.add_argument("--parallel", action="store_true")
