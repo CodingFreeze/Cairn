@@ -335,6 +335,8 @@ Factory clone; it's the local, git-native distillation of what I found valuable.
 | Doc | For |
 |---|---|
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | the thesis, `.cairn` layout, state machine, concurrency model, security model |
+| [`docs/CASE-STUDY.md`](./docs/CASE-STUDY.md) | the dogfood story — 16 friction findings → 16 shipped fixes, the 16-ticket spec-graph test, continuation scars |
+| [`ROADMAP.md`](./ROADMAP.md) | what's in flight, what's designed, what's exploratory — with honest status labels |
 | [`INDEX.md`](./INDEX.md) | the full cairn-* skill/command/agent/module index |
 | [`integrations/README.md`](./integrations/README.md) | CI, PR bot, tracker/incident MCP flows, cron recipes |
 | `.cairn/PROTOCOL.md` | the rules any agent follows (written into each repo) |
