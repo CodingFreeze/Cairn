@@ -8,8 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cairn_core import board, resolve, status, vaultio, handoff, reconcile
-from cairn_core import contractcmd, dismisscmd, readiness, runloop, synccmd
-from cairn_core import mergeflow
+from cairn_core import boarddoctor, contractcmd, dismisscmd, readiness
+from cairn_core import mergeflow, runloop, synccmd
 from cairn_core import init as initmod
 from cairn_core import speccmd
 from cairn_core.safepath import assert_safe_root
@@ -18,9 +18,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "templates" / "cairn"
 
 # Fields that the CLI is permitted to set (mirrors board._SETTABLE_FIELDS).
 _LIST_FIELDS = {"depends_on", "files_owned", "produces", "consumes"}
-_INT_OR_NULL_FIELDS = {"pr"}; _STR_OR_NULL_FIELDS = {"branch", "owner", "base_sha"}
-_STR_FIELDS = {"status"}
-_BOOL_FIELDS = {"schema"}
+_INT_OR_NULL_FIELDS = {"pr"}; _STR_OR_NULL_FIELDS = {"branch", "owner", "base_sha"}; _STR_FIELDS = {"status"}; _BOOL_FIELDS = {"schema"}
 
 
 def find_cairn_dir(start=None):
@@ -88,6 +86,8 @@ def cmd_board(args):
         print(json.dumps(board.set_fields(d, args.id, fields)))
     elif args.action == "remove":
         print(json.dumps(board.remove_entry(d, args.id, force=args.force)))
+    elif args.action == "doctor":
+        print(boarddoctor.run(d, apply=args.apply))
 
 
 def cmd_vault(args):
@@ -251,6 +251,7 @@ def build_parser():
     bsub.add_parser("list")
     bs = bsub.add_parser("set"); bs.add_argument("id"); bs.add_argument("fields", nargs="+")
     br = bsub.add_parser("remove"); br.add_argument("id"); br.add_argument("--force", action="store_true")
+    bd = bsub.add_parser("doctor"); bd.add_argument("--apply", action="store_true")
     pb.set_defaults(func=cmd_board)
     pv = sub.add_parser("vault")
     vsub = pv.add_subparsers(dest="action", required=True)
@@ -283,8 +284,7 @@ def build_parser():
     ps = sub.add_parser("spec")
     ps.add_argument("--format", choices=["mermaid", "html", "both"], default="both")
     ps.set_defaults(func=cmd_spec)
-    synccmd.register(sub, _require_dir)  # CLI body lives in synccmd (300-line cap)
-    contractcmd.register(sub, _require_dir)  # `cairn contract add|check`
+    synccmd.register(sub, _require_dir); contractcmd.register(sub, _require_dir)
     return p
 
 
