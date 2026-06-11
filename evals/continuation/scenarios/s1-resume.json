@@ -1,0 +1,25 @@
+{
+  "id": "s1-resume",
+  "title": "Notes CLI feature (6 tickets), hard kill after ticket 3",
+  "task_family": "notes-cli",
+  "fixture": {
+    "files": {
+      "README.md": "# notes-cli\n\nA tiny plain-text notes tool. See the ticket DAG in the memory layer.\n",
+      "src/__init__.py": ""
+    }
+  },
+  "tickets": [
+    {"id": "T01", "title": "storage layer (read/write notes dir)", "depends_on": [], "files_owned": ["src/storage.py"]},
+    {"id": "T02", "title": "note model (id, title, body, tags)", "depends_on": ["T01"], "files_owned": ["src/model.py"]},
+    {"id": "T03", "title": "add command", "depends_on": ["T02"], "files_owned": ["src/cmd_add.py"]},
+    {"id": "T04", "title": "list command", "depends_on": ["T02"], "files_owned": ["src/cmd_list.py"]},
+    {"id": "T05", "title": "search command (tag + text)", "depends_on": ["T04"], "files_owned": ["src/cmd_search.py"]},
+    {"id": "T06", "title": "cli wiring (argparse entrypoint)", "depends_on": ["T03", "T04", "T05"], "files_owned": ["src/cli.py"]}
+  ],
+  "sessions": [
+    {"n": 1, "kind": "work", "complete_through": ["T01", "T02", "T03"], "kill_after": true},
+    {"n": 2, "kind": "resume", "complete_through": ["T04", "T05", "T06"]}
+  ],
+  "distractor": null,
+  "checks": {"forbid_replanning": true}
+}

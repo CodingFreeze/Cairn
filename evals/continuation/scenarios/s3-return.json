@@ -1,0 +1,31 @@
+{
+  "id": "s3-return",
+  "title": "Config loader (5 tickets), return after a distractor task",
+  "task_family": "config-loader",
+  "fixture": {
+    "files": {
+      "README.md": "# config-loader\n\nLayered config: defaults < file < env. Strict validation.\n",
+      "conf/__init__.py": ""
+    }
+  },
+  "tickets": [
+    {"id": "T01", "title": "defaults layer", "depends_on": [], "files_owned": ["conf/defaults.py"]},
+    {"id": "T02", "title": "file layer (toml)", "depends_on": ["T01"], "files_owned": ["conf/file_layer.py"]},
+    {"id": "T03", "title": "env layer with prefix mapping", "depends_on": ["T01"], "files_owned": ["conf/env_layer.py"]},
+    {"id": "T04", "title": "merge + precedence resolver", "depends_on": ["T02", "T03"], "files_owned": ["conf/merge.py"]},
+    {"id": "T05", "title": "schema validation + errors", "depends_on": ["T04"], "files_owned": ["conf/validate.py"]}
+  ],
+  "sessions": [
+    {"n": 1, "kind": "work", "complete_through": ["T01", "T02"], "kill_after": true},
+    {"n": 2, "kind": "distractor", "complete_through": [], "kill_after": true},
+    {"n": 3, "kind": "resume", "complete_through": ["T03", "T04", "T05"]}
+  ],
+  "distractor": {
+    "prompt": "Unrelated quick task: write docs/changelog-tool.md describing a one-off changelog generator script idea. Do NOT touch the conf/ package or the ticket ledger.",
+    "files": {
+      "docs/changelog-tool.md": "# changelog tool sketch\n\nOne-off generator idea. Unrelated to the config-loader feature.\n"
+    },
+    "commit_subject": "docs: distractor changelog tool sketch"
+  },
+  "checks": {"forbid_replanning": true, "recall_precision": true}
+}
