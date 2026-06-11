@@ -1,7 +1,7 @@
 {
   "name": "cairn",
   "version": "0.2.0",
-  "description": "Memory-first local replica of managed multi-agent orchestration: durable git-vault memory + resumable, role-separated subagent loop. Portable across Claude Code, Cursor, and Codex.",
+  "description": "Agents are great at starting; Cairn makes them great at finishing. Git-carried project state \u2014 ticket DAGs, data contracts, decisions \u2014 so any session, tool, or teammate continues work instead of restarting it. Includes the full conductor loop: worktree-isolated subagents, atomic merges.",
   "author": {
     "name": "CodingFreeze",
     "email": "204774984+CodingFreeze@users.noreply.github.com"

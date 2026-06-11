@@ -5,14 +5,14 @@
     "email": "204774984+CodingFreeze@users.noreply.github.com"
   },
   "metadata": {
-    "description": "Cairn \u2014 memory-first, git-native local replica of managed multi-agent orchestration.",
+    "description": "Agents are great at starting; Cairn makes them great at finishing. Git-carried project state \u2014 ticket DAGs, data contracts, decisions \u2014 so any session, tool, or teammate continues work instead of restarting it. Includes the full conductor loop: worktree-isolated subagents, atomic merges.",
     "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "cairn",
       "source": ".",
-      "description": "Durable git-vault memory + resumable, role-separated subagent orchestration loop. Portable across Claude Code, Cursor, and Codex.",
+      "description": "Agents are great at starting; Cairn makes them great at finishing. Git-carried project state \u2014 ticket DAGs, data contracts, decisions \u2014 so any session, tool, or teammate continues work instead of restarting it. Includes the full conductor loop: worktree-isolated subagents, atomic merges.",
       "category": "orchestration",
       "keywords": [
         "memory",

@@ -10,7 +10,11 @@
         durable waypoints for agents
 ```
 
-**Memory-first multi-agent orchestration for Claude Code, Cursor & Codex — a local, git-native Factory.**
+**Coding agents are great at starting. Cairn makes them great at finishing.**
+
+Multi-day, multi-session, multi-agent work — carried by the repo itself. A Claude Code plugin
+(portable to Cursor & Codex) that turns `git` into the substrate agents continue work on,
+instead of the place they dump it.
 
 ![tests](https://img.shields.io/badge/tests-425%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.9%2B%20·%20stdlib--only%20core-blue)
@@ -29,6 +33,19 @@
 > starting cold.
 
 ## 🧭 Why Cairn?
+
+Every agent demo is a cold start: greenfield repo, one heroic session, done. Real features take
+**days** — sessions die, context compacts, you switch tools, a teammate takes over. Everything
+you already have answers facts (*CLAUDE.md, memory tools remember what you decided*); nothing
+answers **work-in-flight**: *which of the 16 tickets are merged, what's mid-rebase, which data
+contract binds the next one?* Cairn answers that — deterministically, from disk:
+
+| | personal memory tools | Cairn |
+|---|---|---|
+| Lives | your machine / your account | **the repo** |
+| Remembers | facts about past chats | **the state of a half-done job** |
+| Sharing | just you | **clone = inherit the brain** — a teammate's agent continues your feature |
+| Resume | re-read notes, hope | **reconciled against git truth** (tested state machine, not vibes) |
 
 Cairn was born from time spent working inside [Factory AI](https://factory.ai) — watching what
 its droid orchestration gets right, and wanting that workflow on my own machine, in my own git
@@ -109,27 +126,34 @@ picks up exactly where it left off.
 
 ## 🚀 Quick Start
 
-<table>
-<tr><th>Path</th><th>Best for</th><th>How</th></tr>
-<tr><td><b>Claude Code plugin</b></td><td>full automated loop</td><td>add via the plugin <b>marketplace</b>, then use <code>/cairn-*</code> commands</td></tr>
-<tr><td><b>Portable core</b></td><td>Cursor / Codex / any agent</td><td>run the <code>cairn</code> CLI + follow <code>.cairn/PROTOCOL.md</code></td></tr>
-</table>
-
 > **Install (Claude Code):** add this repo as a plugin marketplace (`.claude-plugin/marketplace.json`),
 > then enable the `cairn` plugin. Outside Claude Code, just use the `bin/cairn` CLI directly.
 
+### First five minutes — give your repo a brain
+
 ```bash
-# 1. scaffold the vault into your repo (auto-detects greenfield vs existing codebase)
-bin/cairn init
+bin/cairn init                  # scaffold .cairn/ (auto-detects greenfield vs existing)
+```
+```text
+/cairn-map                      # agent warms the vault: tooling, layout, conventions
+#remember we use pnpm, never npm — broke CI twice    # ambient capture, any time
+/cairn-recall pnpm              # ranked recall, any future session
+/cairn-handoff                  # switching to Cursor mid-feature? it picks up warm
+/cairn-resume                   # dead session / back after 2 weeks? rebuilt from disk
+/cairn-readiness                # how agent-ready is this repo? scored, with fixes
+```
 
-# 2. decompose work into a ticket DAG (in Claude Code)
+Commit `.cairn/` — that's the point. Your teammate clones the repo and **their** agent inherits
+every decision, convention, and half-finished plan. Memory tools remember *you*; the vault
+travels with the *project*.
+
+### Big feature? Engage the conductor
+
+```text
 /cairn-plan build a CSV importer with validation and tests
-
-# 3. run the reconciler loop
-/cairn-run                 # or: /cairn-run --base develop
-
-# 4. came back to a dead session? just:
-/cairn-resume              # rebuilds everything from .cairn/ + git
+   -> ticket DAG + data contracts + spec graph -> edit-or-approve gate -> pick autonomy
+/cairn-run                      # worktree-isolated agents, atomic merges, serial integration
+/cairn-resume                   # continues exactly where ANY previous session stopped
 ```
 
 The control plane is a tiny Python CLI with a **stdlib-only core** — zero dependencies as of v2
