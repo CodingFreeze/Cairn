@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cairn_core import board, resolve, status, vaultio, handoff, reconcile
-from cairn_core import dismisscmd, readiness, runloop
+from cairn_core import dismisscmd, readiness, runloop, synccmd
 from cairn_core import mergeflow
 from cairn_core import init as initmod
 from cairn_core import speccmd
@@ -283,6 +283,7 @@ def build_parser():
     ps = sub.add_parser("spec")
     ps.add_argument("--format", choices=["mermaid", "html", "both"], default="both")
     ps.set_defaults(func=cmd_spec)
+    synccmd.register(sub, _require_dir)  # CLI body lives in synccmd (300-line cap)
     return p
 
 
