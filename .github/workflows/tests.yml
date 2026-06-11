@@ -1,0 +1,60 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest · ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.9", "3.12"]
+    steps:
+      # NOTE: pin to commit SHAs for supply-chain hardening before heavy adoption.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Configure git identity (tests create real repos)
+        run: |
+          git config --global user.email "ci@localhost"
+          git config --global user.name "ci"
+          git config --global init.defaultBranch main
+      - name: Install pytest
+        run: python -m pip install --quiet pytest
+      - name: Run suite
+        run: python -m pytest tests/ -q
+
+  test-windows:
+    # Experimental: the dir-fd safepath layer degrades on Windows (no fcntl,
+    # limited dir_fd support). Tracked, not yet a gate.
+    name: pytest · windows (experimental, non-blocking)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@localhost"
+          git config --global user.name "ci"
+          git config --global init.defaultBranch main
+      - name: Install pytest
+        run: python -m pip install --quiet pytest
+      - name: Run suite (non-blocking)
+        run: python -m pytest tests/ -q
