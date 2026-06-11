@@ -13,7 +13,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from cairn_core import board, boardcheck
+from cairn_core import board, boardcheck, contracts
 from cairn_core.safepath import safe_open_read
 
 # Mirror board's ticket-id charset so a crafted id can never be parsed as a git
@@ -97,6 +97,27 @@ def run(cairn_dir, tid, base="main"):
             f"says {board_branch!r} — refusing to merge a different ref"
         )
 
+    # Contracts gate (data contracts as checkable artifacts). Strictness comes
+    # from .cairn/config.json {"strict_contracts": true} — read defensively
+    # (missing/corrupt config = non-strict). Strict + any error finding aborts
+    # HERE, before any mutation (no commit, no rebase, board untouched);
+    # otherwise the findings ride along on the OK/FAIL summary as a warning.
+    strict = contracts.strict_enabled(cairn_dir)
+    findings = contracts.check_ticket(cairn_dir, entry, strict=strict)
+    errors = [f for f in findings if f["severity"] == "error"]
+    if strict and errors:
+        raise ValueError(
+            f"strict_contracts: {len(errors)} contract error(s) for {tid}: "
+            + "; ".join(contracts.format_finding(f) for f in errors)
+            + " — nothing merged, worktree intact, board unchanged. Fix the "
+            "contract(s) (cairn contract add/check) or unset strict_contracts."
+        )
+    contracts_note = (
+        f" CONTRACTS: {len(findings)} finding(s): "
+        + "; ".join(contracts.format_finding(f) for f in findings)
+        if findings else ""
+    )
+
     # 1. Commit any uncommitted agent changes in the worktree. Surface (don't
     # silently sweep) any dirty path outside the ticket's files_owned scope —
     # fix-forward policy still commits it (work is never dropped on the floor),
@@ -135,7 +156,7 @@ def run(cairn_dir, tid, base="main"):
         _git(["rebase", "--abort"], cwd=wt)
         return (
             f"FAIL {tid}: rebase onto {base} conflicts (fix-forward collision). "
-            "Worktree intact, board unchanged — resolve manually."
+            f"Worktree intact, board unchanged — resolve manually.{contracts_note}"
         )
 
     # 3. --no-ff merge into base (in the main repo). Conflict => abort, stop.
@@ -152,7 +173,7 @@ def run(cairn_dir, tid, base="main"):
         _git(["merge", "--abort"], cwd=repo)
         return (
             f"FAIL {tid}: --no-ff merge into {base} conflicts. Merge aborted, "
-            "board unchanged. (Rebase passed — investigate.)"
+            f"board unchanged. (Rebase passed — investigate.){contracts_note}"
         )
 
     # 4. Record + 5. clean up — only after a clean merge. The merge is the source
@@ -165,7 +186,7 @@ def run(cairn_dir, tid, base="main"):
         return (
             f"OK {tid}: --no-ff merged into {base}, board=merged — but worktree "
             f"removal FAILED ({rm.stderr.strip()}); prune it manually: "
-            f"git worktree remove {wt}"
+            f"git worktree remove {wt}{contracts_note}"
         )
     scope_note = (
         f" WARNING: swept {len(out_of_scope)} path(s) outside files_owned: "
@@ -174,5 +195,5 @@ def run(cairn_dir, tid, base="main"):
     )
     return (
         f"OK {tid}: committed + rebased + --no-ff merged into {base}, "
-        f"board=merged, worktree removed.{scope_note}"
+        f"board=merged, worktree removed.{scope_note}{contracts_note}"
     )
