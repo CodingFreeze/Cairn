@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cairn — Mission Control</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <header id="topbar">
+    <div class="brand"><span class="mark">◮</span> CAIRN <span class="sub">MISSION CONTROL</span></div>
+    <div id="runmeta"><span id="runlabel">driftwatch · run 01</span><span id="clock">00:00</span></div>
+  </header>
+
+  <main id="grid">
+    <section id="graph-pane" class="pane">
+      <canvas id="graph"></canvas>
+      <div id="caption" class="caption"></div>
+    </section>
+    <aside id="side">
+      <section id="term-pane" class="pane">
+        <div class="pane-title">RECONCILER</div>
+        <div id="term"></div>
+      </section>
+      <section id="board-pane" class="pane">
+        <div class="pane-title">BOARD · board.jsonl</div>
+        <div id="board"></div>
+      </section>
+      <section id="vault-pane" class="pane hidden">
+        <div class="pane-title">VAULT · decisions + issues</div>
+        <div id="vault"></div>
+      </section>
+    </aside>
+  </main>
+
+  <div id="title-card" class="overlay">
+    <div class="t-mark">◮</div>
+    <div class="t-name">CAIRN</div>
+    <div class="t-tag">plan once · dispatch droids · merge clean</div>
+  </div>
+
+  <div id="kill-card" class="overlay hidden">
+    <div class="k-text">SESSION TERMINATED</div>
+  </div>
+
+  <div id="file-card" class="overlay hidden">
+    <div class="f-box">
+      <div class="f-head">still on disk · committed to git</div>
+      <pre id="file-body"></pre>
+    </div>
+  </div>
+
+  <div id="end-card" class="overlay hidden">
+    <div class="e-line1">Your repo is the runtime.</div>
+    <div class="e-line2">github.com/CodingFreeze/Cairn</div>
+    <div class="e-line3">claude code plugin · MIT · 425 tests</div>
+  </div>
+
+  <div id="vignette"></div>
+</div>
+<script src="graphfx.js"></script>
+<script src="graph.js"></script>
+<script src="terminal.js"></script>
+<script src="board.js"></script>
+<script src="live.js"></script>
+<script src="engine.js"></script>
+</body>
+</html>

@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from cairn_core import board, resolve, status, vaultio, handoff, reconcile
-from cairn_core import boarddoctor, contractcmd, dismisscmd, readiness
+from cairn_core import board, boardcheck, resolve, status, vaultio, handoff, reconcile
+from cairn_core import boarddoctor, contractcmd, dismisscmd, missioncmd, readiness
 from cairn_core import mergeflow, runloop, synccmd, vaultcompact
 from cairn_core import init as initmod
 from cairn_core import speccmd
@@ -16,9 +16,6 @@ from cairn_core.safepath import assert_safe_root
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates" / "cairn"
 
-# Fields that the CLI is permitted to set (mirrors board._SETTABLE_FIELDS).
-_LIST_FIELDS = {"depends_on", "files_owned", "produces", "consumes"}
-_INT_OR_NULL_FIELDS = {"pr"}; _STR_OR_NULL_FIELDS = {"branch", "owner", "base_sha"}; _STR_FIELDS = {"status"}; _BOOL_FIELDS = {"schema"}
 
 
 def find_cairn_dir(start=None):
@@ -38,23 +35,6 @@ def _require_dir():
     if d is None:
         sys.exit("error: no .cairn directory found (run `cairn init`)")
     return d
-
-
-def _coerce_field(key, value):
-    """Coerce a single key=value string pair to the correct Python type."""
-    if key in _LIST_FIELDS:
-        return json.loads(value)  # expects a JSON list; JSONDecodeError propagates
-    if key in _INT_OR_NULL_FIELDS:
-        return None if value == "null" else int(value)
-    if key in _STR_OR_NULL_FIELDS:
-        return None if value == "null" else value
-    if key in _STR_FIELDS:
-        return value
-    if key in _BOOL_FIELDS:
-        if value in ("true", "false"):
-            return value == "true"
-        sys.exit(f"error: {key} must be true or false, got: {value}")
-    sys.exit(f"error: field not settable: {key}")
 
 
 def cmd_init(args):
@@ -82,7 +62,7 @@ def cmd_board(args):
             if "=" not in kv:
                 sys.exit(f"error: field must be key=value, got: {kv}")
             key, _, value = kv.partition("=")
-            fields[key] = _coerce_field(key, value)
+            fields[key] = boardcheck.coerce_cli_field(key, value)
         print(json.dumps(board.set_fields(d, args.id, fields)))
     elif args.action == "remove":
         print(json.dumps(board.remove_entry(d, args.id, force=args.force)))
@@ -225,6 +205,10 @@ def cmd_step(args):
     print(json.dumps(runloop.step(_require_dir(), base=args.base, token=args.token)))
 
 
+def cmd_mission(args):
+    missioncmd.serve(_require_dir(), port=args.port, open_browser=not args.no_open)
+
+
 def cmd_runlock(args):
     d = _require_dir()
     if args.action == "acquire":
@@ -285,6 +269,8 @@ def build_parser():
     ps.add_argument("--format", choices=["mermaid", "html", "both"], default="both")
     ps.set_defaults(func=cmd_spec)
     synccmd.register(sub, _require_dir); contractcmd.register(sub, _require_dir)
+    pmn = sub.add_parser("mission"); pmn.add_argument("--port", type=int, default=4517)
+    pmn.add_argument("--no-open", action="store_true"); pmn.set_defaults(func=cmd_mission)
     return p
 
 

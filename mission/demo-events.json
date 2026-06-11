@@ -1,0 +1,1213 @@
+{
+ "duration_ms": 53860,
+ "dag": [
+  {
+   "id": "T1",
+   "title": "Scaffold & tooling",
+   "deps": [],
+   "schema": false,
+   "produces": [],
+   "consumes": []
+  },
+  {
+   "id": "T2",
+   "title": "Config schema",
+   "deps": [
+    "T1"
+   ],
+   "schema": true,
+   "produces": [
+    "ConfigSchema"
+   ],
+   "consumes": []
+  },
+  {
+   "id": "T3",
+   "title": "Snapshot store",
+   "deps": [
+    "T1"
+   ],
+   "schema": true,
+   "produces": [
+    "SnapshotModel"
+   ],
+   "consumes": [
+    "ConfigSchema"
+   ]
+  },
+  {
+   "id": "T4",
+   "title": "Fetcher",
+   "deps": [
+    "T2",
+    "T3"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": [
+    "ConfigSchema",
+    "SnapshotModel"
+   ]
+  },
+  {
+   "id": "T5",
+   "title": "Scheduler",
+   "deps": [
+    "T2",
+    "T4"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": [
+    "ConfigSchema"
+   ]
+  },
+  {
+   "id": "T6",
+   "title": "Differ",
+   "deps": [
+    "T3"
+   ],
+   "schema": true,
+   "produces": [
+    "ChangeAST"
+   ],
+   "consumes": [
+    "SnapshotModel"
+   ]
+  },
+  {
+   "id": "T7",
+   "title": "Classifier",
+   "deps": [
+    "T6"
+   ],
+   "schema": true,
+   "produces": [
+    "Classification"
+   ],
+   "consumes": [
+    "ChangeAST"
+   ]
+  },
+  {
+   "id": "T8",
+   "title": "Report gen",
+   "deps": [
+    "T7"
+   ],
+   "schema": true,
+   "produces": [
+    "ReportSchema"
+   ],
+   "consumes": [
+    "ChangeAST",
+    "Classification"
+   ]
+  },
+  {
+   "id": "T9",
+   "title": "Results store",
+   "deps": [
+    "T3",
+    "T6",
+    "T7",
+    "T8"
+   ],
+   "schema": true,
+   "produces": [
+    "StatusHistory"
+   ],
+   "consumes": [
+    "SnapshotModel",
+    "ChangeAST",
+    "Classification",
+    "ReportSchema"
+   ]
+  },
+  {
+   "id": "T10",
+   "title": "Orchestration pipeline",
+   "deps": [
+    "T4",
+    "T5",
+    "T6",
+    "T7",
+    "T8",
+    "T9"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": []
+  },
+  {
+   "id": "T11",
+   "title": "Dashboard API",
+   "deps": [
+    "T9"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": [
+    "StatusHistory"
+   ]
+  },
+  {
+   "id": "T12",
+   "title": "Dashboard UI",
+   "deps": [
+    "T11"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": []
+  },
+  {
+   "id": "T13",
+   "title": "Differ tests",
+   "deps": [
+    "T6"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": [
+    "ChangeAST"
+   ]
+  },
+  {
+   "id": "T14",
+   "title": "Classifier tests",
+   "deps": [
+    "T7"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": [
+    "Classification"
+   ]
+  },
+  {
+   "id": "T15",
+   "title": "CI pipeline",
+   "deps": [
+    "T1",
+    "T13",
+    "T14"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": []
+  },
+  {
+   "id": "T16",
+   "title": "Sample config",
+   "deps": [
+    "T2",
+    "T3"
+   ],
+   "schema": false,
+   "produces": [],
+   "consumes": [
+    "ConfigSchema",
+    "SnapshotModel"
+   ]
+  }
+ ],
+ "events": [
+  {
+   "t": 0,
+   "type": "scene",
+   "name": "title"
+  },
+  {
+   "t": 200,
+   "type": "sfx",
+   "name": "pad_in"
+  },
+  {
+   "t": 300,
+   "type": "caption",
+   "text": "Spec-driven multi-agent orchestration. Local. Git-native."
+  },
+  {
+   "t": 2400,
+   "type": "scene",
+   "name": "plan"
+  },
+  {
+   "t": 2500,
+   "type": "term",
+   "text": "$ claude",
+   "style": "cmd"
+  },
+  {
+   "t": 3000,
+   "type": "term",
+   "text": "> /cairn-plan --goal \"Driftwatch \u2014 monitor sites for meaningful changes\"",
+   "style": "cmd"
+  },
+  {
+   "t": 3000,
+   "type": "sfx",
+   "name": "keys"
+  },
+  {
+   "t": 4200,
+   "type": "term",
+   "text": "Decomposing goal -> ticket DAG ...",
+   "style": "out"
+  },
+  {
+   "t": 4800,
+   "type": "caption",
+   "text": "One planning pass -> 16-ticket DAG with data contracts drawn before code."
+  },
+  {
+   "t": 5000,
+   "type": "node",
+   "id": "T1",
+   "state": "todo"
+  },
+  {
+   "t": 5000,
+   "type": "sfx",
+   "name": "tick"
+  },
+  {
+   "t": 5130,
+   "type": "node",
+   "id": "T2",
+   "state": "todo"
+  },
+  {
+   "t": 5260,
+   "type": "node",
+   "id": "T3",
+   "state": "todo"
+  },
+  {
+   "t": 5390,
+   "type": "node",
+   "id": "T4",
+   "state": "todo"
+  },
+  {
+   "t": 5520,
+   "type": "node",
+   "id": "T5",
+   "state": "todo"
+  },
+  {
+   "t": 5520,
+   "type": "sfx",
+   "name": "tick"
+  },
+  {
+   "t": 5650,
+   "type": "node",
+   "id": "T6",
+   "state": "todo"
+  },
+  {
+   "t": 5780,
+   "type": "node",
+   "id": "T7",
+   "state": "todo"
+  },
+  {
+   "t": 5910,
+   "type": "node",
+   "id": "T8",
+   "state": "todo"
+  },
+  {
+   "t": 6040,
+   "type": "node",
+   "id": "T9",
+   "state": "todo"
+  },
+  {
+   "t": 6040,
+   "type": "sfx",
+   "name": "tick"
+  },
+  {
+   "t": 6170,
+   "type": "node",
+   "id": "T10",
+   "state": "todo"
+  },
+  {
+   "t": 6300,
+   "type": "node",
+   "id": "T11",
+   "state": "todo"
+  },
+  {
+   "t": 6430,
+   "type": "node",
+   "id": "T12",
+   "state": "todo"
+  },
+  {
+   "t": 6560,
+   "type": "node",
+   "id": "T13",
+   "state": "todo"
+  },
+  {
+   "t": 6560,
+   "type": "sfx",
+   "name": "tick"
+  },
+  {
+   "t": 6690,
+   "type": "node",
+   "id": "T14",
+   "state": "todo"
+  },
+  {
+   "t": 6820,
+   "type": "node",
+   "id": "T15",
+   "state": "todo"
+  },
+  {
+   "t": 6950,
+   "type": "node",
+   "id": "T16",
+   "state": "todo"
+  },
+  {
+   "t": 7200,
+   "type": "term",
+   "text": "16 tickets \u00b7 6 data contracts \u00b7 spec graph written",
+   "style": "ok"
+  },
+  {
+   "t": 7300,
+   "type": "sfx",
+   "name": "chime_soft"
+  },
+  {
+   "t": 7400,
+   "type": "caption",
+   "text": "Edit-or-approve gate. Autonomy: merge-on-green \u2014 no babysitting."
+  },
+  {
+   "t": 8800,
+   "type": "scene",
+   "name": "run"
+  },
+  {
+   "t": 9000,
+   "type": "term",
+   "text": "> /cairn-run --base main",
+   "style": "cmd"
+  },
+  {
+   "t": 9600,
+   "type": "term",
+   "text": "$ cairn run-lock acquire",
+   "style": "cmd"
+  },
+  {
+   "t": 9900,
+   "type": "caption",
+   "text": "Each ticket: isolated worktree + fresh implementer/reviewer/tester agents."
+  },
+  {
+   "t": 9950,
+   "type": "term",
+   "text": "{\"token\": \"9f2c41ab...\"}",
+   "style": "out"
+  },
+  {
+   "t": 9950,
+   "type": "sfx",
+   "name": "lock"
+  },
+  {
+   "t": 10600,
+   "type": "node",
+   "id": "T1",
+   "state": "dispatched"
+  },
+  {
+   "t": 10600,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T1 \u00b7 cairn/T1 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 10600,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 11300,
+   "type": "node",
+   "id": "T1",
+   "state": "in-progress"
+  },
+  {
+   "t": 12650,
+   "type": "term",
+   "text": "OK T1: rebased + --no-ff merged \u2014 Scaffold & tooling",
+   "style": "ok"
+  },
+  {
+   "t": 12650,
+   "type": "node",
+   "id": "T1",
+   "state": "merged"
+  },
+  {
+   "t": 12650,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 13420,
+   "type": "node",
+   "id": "T2",
+   "state": "dispatched"
+  },
+  {
+   "t": 13420,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T2 \u00b7 cairn/T2 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 13420,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 13580,
+   "type": "node",
+   "id": "T3",
+   "state": "dispatched"
+  },
+  {
+   "t": 13580,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T3 \u00b7 cairn/T3 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 13580,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 13770,
+   "type": "caption",
+   "text": "2 agents in parallel \u2014 files disjoint, merges serial."
+  },
+  {
+   "t": 14120,
+   "type": "node",
+   "id": "T2",
+   "state": "in-progress"
+  },
+  {
+   "t": 14280,
+   "type": "node",
+   "id": "T3",
+   "state": "in-progress"
+  },
+  {
+   "t": 15470,
+   "type": "term",
+   "text": "OK T2: rebased + --no-ff merged \u2014 Config schema",
+   "style": "ok"
+  },
+  {
+   "t": 15470,
+   "type": "node",
+   "id": "T2",
+   "state": "merged"
+  },
+  {
+   "t": 15470,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 15890,
+   "type": "term",
+   "text": "OK T3: rebased + --no-ff merged \u2014 Snapshot store",
+   "style": "ok"
+  },
+  {
+   "t": 15890,
+   "type": "node",
+   "id": "T3",
+   "state": "merged"
+  },
+  {
+   "t": 15890,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 16660,
+   "type": "node",
+   "id": "T4",
+   "state": "dispatched"
+  },
+  {
+   "t": 16660,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T4 \u00b7 cairn/T4 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 16660,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 16820,
+   "type": "node",
+   "id": "T6",
+   "state": "dispatched"
+  },
+  {
+   "t": 16820,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T6 \u00b7 cairn/T6 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 16820,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 16980,
+   "type": "node",
+   "id": "T16",
+   "state": "dispatched"
+  },
+  {
+   "t": 16980,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T16 \u00b7 cairn/T16 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 16980,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 17010,
+   "type": "caption",
+   "text": "3 agents in parallel \u2014 files disjoint, merges serial."
+  },
+  {
+   "t": 17360,
+   "type": "node",
+   "id": "T4",
+   "state": "in-progress"
+  },
+  {
+   "t": 17520,
+   "type": "node",
+   "id": "T6",
+   "state": "in-progress"
+  },
+  {
+   "t": 17680,
+   "type": "node",
+   "id": "T16",
+   "state": "in-progress"
+  },
+  {
+   "t": 18710,
+   "type": "term",
+   "text": "OK T4: rebased + --no-ff merged \u2014 Fetcher",
+   "style": "ok"
+  },
+  {
+   "t": 18710,
+   "type": "node",
+   "id": "T4",
+   "state": "merged"
+  },
+  {
+   "t": 18710,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 19130,
+   "type": "term",
+   "text": "OK T6: rebased + --no-ff merged \u2014 Differ",
+   "style": "ok"
+  },
+  {
+   "t": 19130,
+   "type": "node",
+   "id": "T6",
+   "state": "merged"
+  },
+  {
+   "t": 19130,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 19550,
+   "type": "term",
+   "text": "OK T16: rebased + --no-ff merged \u2014 Sample config",
+   "style": "ok"
+  },
+  {
+   "t": 19550,
+   "type": "node",
+   "id": "T16",
+   "state": "merged"
+  },
+  {
+   "t": 19550,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 20320,
+   "type": "node",
+   "id": "T5",
+   "state": "dispatched"
+  },
+  {
+   "t": 20320,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T5 \u00b7 cairn/T5 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 20320,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 20480,
+   "type": "node",
+   "id": "T7",
+   "state": "dispatched"
+  },
+  {
+   "t": 20480,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T7 \u00b7 cairn/T7 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 20480,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 20640,
+   "type": "node",
+   "id": "T13",
+   "state": "dispatched"
+  },
+  {
+   "t": 20640,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T13 \u00b7 cairn/T13 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 20640,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 20670,
+   "type": "caption",
+   "text": "3 agents in parallel \u2014 files disjoint, merges serial."
+  },
+  {
+   "t": 21020,
+   "type": "node",
+   "id": "T5",
+   "state": "in-progress"
+  },
+  {
+   "t": 21180,
+   "type": "node",
+   "id": "T7",
+   "state": "in-progress"
+  },
+  {
+   "t": 21340,
+   "type": "node",
+   "id": "T13",
+   "state": "in-progress"
+  },
+  {
+   "t": 22370,
+   "type": "term",
+   "text": "OK T5: rebased + --no-ff merged \u2014 Scheduler",
+   "style": "ok"
+  },
+  {
+   "t": 22370,
+   "type": "node",
+   "id": "T5",
+   "state": "merged"
+  },
+  {
+   "t": 22370,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 22790,
+   "type": "term",
+   "text": "OK T7: rebased + --no-ff merged \u2014 Classifier",
+   "style": "ok"
+  },
+  {
+   "t": 22790,
+   "type": "node",
+   "id": "T7",
+   "state": "merged"
+  },
+  {
+   "t": 22790,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 23210,
+   "type": "term",
+   "text": "OK T13: rebased + --no-ff merged \u2014 Differ tests",
+   "style": "ok"
+  },
+  {
+   "t": 23210,
+   "type": "node",
+   "id": "T13",
+   "state": "merged"
+  },
+  {
+   "t": 23210,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 23980,
+   "type": "node",
+   "id": "T8",
+   "state": "dispatched"
+  },
+  {
+   "t": 23980,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T8 \u00b7 cairn/T8 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 23980,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 24140,
+   "type": "node",
+   "id": "T14",
+   "state": "dispatched"
+  },
+  {
+   "t": 24140,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T14 \u00b7 cairn/T14 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 24140,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 24330,
+   "type": "caption",
+   "text": "2 agents in parallel \u2014 files disjoint, merges serial."
+  },
+  {
+   "t": 24680,
+   "type": "node",
+   "id": "T8",
+   "state": "in-progress"
+  },
+  {
+   "t": 24840,
+   "type": "node",
+   "id": "T14",
+   "state": "in-progress"
+  },
+  {
+   "t": 26030,
+   "type": "term",
+   "text": "OK T8: rebased + --no-ff merged \u2014 Report gen",
+   "style": "ok"
+  },
+  {
+   "t": 26030,
+   "type": "node",
+   "id": "T8",
+   "state": "merged"
+  },
+  {
+   "t": 26030,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 26450,
+   "type": "term",
+   "text": "OK T14: rebased + --no-ff merged \u2014 Classifier tests",
+   "style": "ok"
+  },
+  {
+   "t": 26450,
+   "type": "node",
+   "id": "T14",
+   "state": "merged"
+  },
+  {
+   "t": 26450,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 27220,
+   "type": "node",
+   "id": "T9",
+   "state": "dispatched"
+  },
+  {
+   "t": 27220,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T9 \u00b7 cairn/T9 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 27220,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 27380,
+   "type": "node",
+   "id": "T15",
+   "state": "dispatched"
+  },
+  {
+   "t": 27380,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T15 \u00b7 cairn/T15 @ worktree",
+   "style": "out"
+  },
+  {
+   "t": 27380,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 27570,
+   "type": "caption",
+   "text": "2 agents in parallel \u2014 files disjoint, merges serial."
+  },
+  {
+   "t": 27920,
+   "type": "node",
+   "id": "T9",
+   "state": "in-progress"
+  },
+  {
+   "t": 28080,
+   "type": "node",
+   "id": "T15",
+   "state": "in-progress"
+  },
+  {
+   "t": 29270,
+   "type": "term",
+   "text": "OK T9: rebased + --no-ff merged \u2014 Results store",
+   "style": "ok"
+  },
+  {
+   "t": 29270,
+   "type": "node",
+   "id": "T9",
+   "state": "merged"
+  },
+  {
+   "t": 29270,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 29690,
+   "type": "term",
+   "text": "OK T15: rebased + --no-ff merged \u2014 CI pipeline",
+   "style": "ok"
+  },
+  {
+   "t": 29690,
+   "type": "node",
+   "id": "T15",
+   "state": "merged"
+  },
+  {
+   "t": 29690,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 30460,
+   "type": "node",
+   "id": "T10",
+   "state": "dispatched"
+  },
+  {
+   "t": 30460,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T10 \u00b7 orchestration pipeline",
+   "style": "out"
+  },
+  {
+   "t": 30460,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 31060,
+   "type": "node",
+   "id": "T10",
+   "state": "in-progress"
+  },
+  {
+   "t": 31160,
+   "type": "term",
+   "text": "implementer running \u00b7 wiring fetch->diff->classify->report ...",
+   "style": "out"
+  },
+  {
+   "t": 32360,
+   "type": "scene",
+   "name": "kill"
+  },
+  {
+   "t": 32360,
+   "type": "sfx",
+   "name": "glitch"
+  },
+  {
+   "t": 32510,
+   "type": "term",
+   "text": "SESSION TERMINATED",
+   "style": "err"
+  },
+  {
+   "t": 32860,
+   "type": "caption",
+   "text": "Session crash mid-run. State? Already in the repo."
+  },
+  {
+   "t": 33760,
+   "type": "filecard",
+   "text": ".cairn/board.jsonl \u2014 13 merged \u00b7 1 in-progress \u00b7 2 todo\n.cairn/vault/ \u2014 schema \u00b7 decisions \u00b7 issues \u2014 all committed"
+  },
+  {
+   "t": 33760,
+   "type": "sfx",
+   "name": "pad_low"
+  },
+  {
+   "t": 36760,
+   "type": "scene",
+   "name": "resume"
+  },
+  {
+   "t": 36960,
+   "type": "term",
+   "text": "$ claude   # new session, zero context",
+   "style": "cmd"
+  },
+  {
+   "t": 37660,
+   "type": "term",
+   "text": "> /cairn-resume",
+   "style": "cmd"
+  },
+  {
+   "t": 37660,
+   "type": "sfx",
+   "name": "keys"
+  },
+  {
+   "t": 38360,
+   "type": "term",
+   "text": "reconciling board vs git ... T10 in_progress_resumable -> re-dispatch",
+   "style": "out"
+  },
+  {
+   "t": 38360,
+   "type": "sfx",
+   "name": "resolve"
+  },
+  {
+   "t": 38460,
+   "type": "caption",
+   "text": "New session reconciles board vs git \u2014 picks up exactly where it died."
+  },
+  {
+   "t": 38560,
+   "type": "node",
+   "id": "T10",
+   "state": "in-progress"
+  },
+  {
+   "t": 41260,
+   "type": "term",
+   "text": "OK T10: rebased + --no-ff merged \u2014 Orchestration pipeline",
+   "style": "ok"
+  },
+  {
+   "t": 41260,
+   "type": "node",
+   "id": "T10",
+   "state": "merged"
+  },
+  {
+   "t": 41260,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 41860,
+   "type": "node",
+   "id": "T11",
+   "state": "dispatched"
+  },
+  {
+   "t": 41860,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T11",
+   "style": "out"
+  },
+  {
+   "t": 41860,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 42360,
+   "type": "node",
+   "id": "T11",
+   "state": "in-progress"
+  },
+  {
+   "t": 43360,
+   "type": "term",
+   "text": "OK T11: rebased + --no-ff merged \u2014 Dashboard API",
+   "style": "ok"
+  },
+  {
+   "t": 43360,
+   "type": "node",
+   "id": "T11",
+   "state": "merged"
+  },
+  {
+   "t": 43360,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 43960,
+   "type": "node",
+   "id": "T12",
+   "state": "dispatched"
+  },
+  {
+   "t": 43960,
+   "type": "term",
+   "text": "$ cairn step  ->  dispatch T12",
+   "style": "out"
+  },
+  {
+   "t": 43960,
+   "type": "sfx",
+   "name": "whoosh"
+  },
+  {
+   "t": 44460,
+   "type": "node",
+   "id": "T12",
+   "state": "in-progress"
+  },
+  {
+   "t": 45460,
+   "type": "term",
+   "text": "OK T12: rebased + --no-ff merged \u2014 Dashboard UI",
+   "style": "ok"
+  },
+  {
+   "t": 45460,
+   "type": "node",
+   "id": "T12",
+   "state": "merged"
+  },
+  {
+   "t": 45460,
+   "type": "sfx",
+   "name": "merge"
+  },
+  {
+   "t": 46260,
+   "type": "term",
+   "text": "$ cairn status   ->   16/16 merged",
+   "style": "ok"
+  },
+  {
+   "t": 46360,
+   "type": "scene",
+   "name": "alldone"
+  },
+  {
+   "t": 46360,
+   "type": "sfx",
+   "name": "chime_final"
+  },
+  {
+   "t": 46460,
+   "type": "caption",
+   "text": "16 tickets \u00b7 parallel agents \u00b7 serial clean merges \u00b7 zero drift."
+  },
+  {
+   "t": 48660,
+   "type": "scene",
+   "name": "endcard"
+  },
+  {
+   "t": 48660,
+   "type": "sfx",
+   "name": "pad_out"
+  },
+  {
+   "t": 48860,
+   "type": "caption",
+   "text": ""
+  }
+ ]
+}
