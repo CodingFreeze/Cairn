@@ -80,7 +80,8 @@ def test_every_skill_has_valid_frontmatter():
 
 
 # --- 3. no functional file exceeds 300 lines --------------------------------
-FUNCTIONAL_GLOBS = ["bin/cairn", "bin/cairn_core/*.py", "tests/*.py", "scripts/*.sh"]
+FUNCTIONAL_GLOBS = ["bin/cairn", "bin/cairn_core/*.py", "tests/*.py", "scripts/*.sh",
+                    "evals/continuation/*.py"]
 
 
 def test_no_functional_file_exceeds_300_lines():
