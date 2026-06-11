@@ -1,11 +1,13 @@
 """Contracts-as-code tests: add/validate/refuse-overwrite, name charset,
-and check findings (all four kinds).
+check findings (all four kinds), and strict vs non-strict mergeflow gating.
 
-tmp_path is realpath-resolved because the macOS /tmp symlink breaks safepath
-root checks.
+Mergeflow tests build real throwaway git repos (same pattern as
+test_mergeflow_v2.py). tmp_path is realpath-resolved because the macOS /tmp
+symlink breaks safepath root checks.
 """
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -13,8 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bin"))
 
 import pytest  # noqa: E402
 
-from cairn_core import board, contracts  # noqa: E402
+from cairn_core import board, contracts, mergeflow  # noqa: E402
 
+CLI = Path(__file__).resolve().parent.parent / "bin" / "cairn"
 VALID = '{"type": "object", "properties": {"id": {"type": "string"}}}'
 
 
@@ -132,3 +135,88 @@ def test_strict_enabled_defensive_config_read(cairn):
     assert contracts.strict_enabled(cairn) is False          # non-bool
     (cairn / "config.json").write_text('{"strict_contracts": true}')
     assert contracts.strict_enabled(cairn) is True
+
+
+# ---------- mergeflow gate (real git, pattern from test_mergeflow_v2) ----------
+
+def _git(args, cwd):
+    r = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True)
+    assert r.returncode == 0, f"git {' '.join(args)} failed: {r.stderr}"
+    return r.stdout.strip()
+
+
+def _cli(args, cwd, stdin=None):
+    return subprocess.run(
+        [sys.executable, str(CLI), *args], cwd=str(cwd),
+        capture_output=True, text=True, input=stdin,
+    )
+
+
+def _dispatch(tmp_path, tid, produces=None, consumes=None):
+    base_sha = _git(["rev-parse", "main"], tmp_path)
+    entry = {"id": tid, "status": "dispatched", "branch": f"cairn/{tid}",
+             "depends_on": [], "base_sha": base_sha}
+    if produces is not None:
+        entry["produces"] = produces
+    if consumes is not None:
+        entry["consumes"] = consumes
+    r = _cli(["board", "add", json.dumps(entry)], tmp_path)
+    assert r.returncode == 0, r.stderr
+    _git(["worktree", "add", "-b", f"cairn/{tid}", f".cairn/worktrees/{tid}", "main"],
+         tmp_path)
+    (tmp_path / ".cairn" / "worktrees" / tid / "feature.txt").write_text("new\n")
+
+
+@pytest.fixture
+def repo(tmp_path):
+    p = Path(os.path.realpath(tmp_path))
+    _git(["init"], p)
+    _git(["config", "user.email", "t@t.co"], p)
+    _git(["config", "user.name", "tester"], p)
+    _cli(["init", ".", "--goal", "demo"], p)
+    (p / "app.txt").write_text("v1\n")
+    _git(["add", "-A"], p)
+    _git(["commit", "-m", "baseline"], p)
+    return p
+
+
+def test_merge_nonstrict_warns_in_summary(repo):
+    """produces with no contract file: merge proceeds, summary carries the note."""
+    _dispatch(repo, "T01", produces=["Cfg"])
+    summary = mergeflow.run(repo / ".cairn", "T01")
+    assert summary.startswith("OK T01"), summary
+    assert "CONTRACTS: 1 finding(s):" in summary
+    assert "missing_contract[warn] Cfg" in summary
+
+
+def test_merge_strict_aborts_pre_mutation(repo):
+    """strict_contracts=true: same ticket aborts BEFORE any mutation."""
+    (repo / ".cairn" / "config.json").write_text('{"strict_contracts": true}\n')
+    _dispatch(repo, "T01", produces=["Cfg"])
+    tip = _git(["rev-parse", "main"], repo)
+
+    with pytest.raises(ValueError, match="strict_contracts"):
+        mergeflow.run(repo / ".cairn", "T01")
+
+    # nothing mutated: worktree intact, board not merged, base tip unmoved
+    assert (repo / ".cairn" / "worktrees" / "T01" / "feature.txt").exists()
+    assert board.get_entry(repo / ".cairn", "T01")["status"] == "dispatched"
+    assert _git(["rev-parse", "main"], repo) == tip
+
+
+def test_merge_strict_passes_with_valid_contract(repo):
+    (repo / ".cairn" / "config.json").write_text('{"strict_contracts": true}\n')
+    contracts.add(repo / ".cairn", "Cfg", VALID)
+    _dispatch(repo, "T01", produces=["Cfg"])
+    summary = mergeflow.run(repo / ".cairn", "T01")
+    assert summary.startswith("OK T01"), summary
+    assert "CONTRACTS" not in summary  # zero findings, no note
+
+
+def test_merge_corrupt_config_is_nonstrict(repo):
+    """A corrupt config.json must never block a merge (defensive read)."""
+    (repo / ".cairn" / "config.json").write_text("{not json")
+    _dispatch(repo, "T01", produces=["Cfg"])
+    summary = mergeflow.run(repo / ".cairn", "T01")
+    assert summary.startswith("OK T01"), summary
+    assert "missing_contract[warn] Cfg" in summary
