@@ -220,3 +220,30 @@ def test_merge_corrupt_config_is_nonstrict(repo):
     summary = mergeflow.run(repo / ".cairn", "T01")
     assert summary.startswith("OK T01"), summary
     assert "missing_contract[warn] Cfg" in summary
+
+
+# ---------- CLI ----------
+
+def test_cli_contract_add_and_check(repo):
+    r = _cli(["contract", "add", "Cfg", "--stdin"], repo, stdin=VALID)
+    assert r.returncode == 0, r.stderr
+    assert (repo / ".cairn" / "contracts" / "Cfg.schema.json").is_file()
+    # duplicate add refused without --update
+    r = _cli(["contract", "add", "Cfg", "--stdin"], repo, stdin=VALID)
+    assert r.returncode != 0
+    assert "already exists" in r.stderr
+    # board-wide check: Cfg is unused (info) -> JSON out, exit 0
+    r = _cli(["contract", "check"], repo)
+    assert r.returncode == 0, r.stderr
+    findings = json.loads(r.stdout)
+    assert [(f["finding"], f["name"]) for f in findings] == \
+        [("unused_contract", "Cfg")]
+
+
+def test_cli_contract_check_ticket_errors_exit_nonzero(repo):
+    _dispatch(repo, "T01", consumes=["Ghost"])
+    r = _cli(["contract", "check", "T01"], repo)
+    assert r.returncode == 1
+    findings = json.loads(r.stdout)
+    assert [(f["finding"], f["severity"]) for f in findings] == \
+        [("orphan_consumer", "error")]

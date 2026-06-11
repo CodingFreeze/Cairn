@@ -105,6 +105,18 @@ cairn board add '{"id":"T##","depends_on":["T0x"],"files_owned":["path/..."],
 `schema`/`produces`/`consumes` are optional — omit them on non-contract tickets.
 One contract is defined by exactly ONE producer; consumers reference it by name.)
 
+**Contracts are artifacts, not just names.** For every `[SCHEMA]` ticket, also write the
+contract's JSON Schema skeleton NOW via `cairn contract add` — it lands in
+`.cairn/contracts/<name>.schema.json`, and `cairn contract check` (plus the merge gate) verifies
+producers/consumers against it instead of detecting drift by vibes. A skeleton with the agreed
+field names and types is enough; the producer ticket refines it (`--update`) as it implements:
+
+```bash
+cairn contract add ContractName --stdin <<'EOF'
+{"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+EOF
+```
+
 **Optional rules scaffold.** If the plan surfaces durable, every-ticket coding rules (style,
 security posture, framework idioms beyond what `vault/schema.md` carries), scaffold them now as
 `.cairn/rules/*.md` — `/cairn-run` injects these files plus any repo `AGENTS.md` verbatim into
