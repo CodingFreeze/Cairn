@@ -156,6 +156,20 @@ background tasks in separate worktrees — but integration stays SERIAL through 
 **Parallelism in the work, never in the merge** — merge conflicts are the failure mode that
 costs the most operator attention.
 
+## Scale envelope
+
+Cairn is tested (`tests/test_scale.py`, marker `scale`) at **1,000 board tickets** (chain +
+diamond dependency mix, 200 simultaneously ready) and **10,000 vault bullets** — an order of
+magnitude beyond any realistic mission — and every core op stays in single-digit milliseconds
+against multi-second CI budgets. The core ops are linear or near-linear: `read_board` is one
+file read + per-line validation, O(n); `next_ready`/`ready_all` build one `id→entry` dict and
+sort, O(n log n); `parallel_safe` is greedy with pairwise file-overlap checks, O(k²·f) in the
+k tickets taken; `find_cycle` is an iterative white/grey/black DFS, O(V+E); `status.render`,
+`boarddoctor.diagnose`, and `vaultcompact.plan` are single-pass O(n); `vaultio.search` scans
+each vault file once, O(total lines). The only super-linear-feeling surface is `reconcile`,
+which shells out to git per ticket — its cost is subprocess + repo state, not Cairn's
+algorithms, so it is deliberately outside the perf-budget suite.
+
 ## Module map — `bin/cairn_core/`
 
 The CLI entrypoint (`bin/cairn`) is argument parsing only; logic lives in `cairn_core`:
