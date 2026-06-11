@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agents are great at starting; Cairn makes them great at finishing. Git-carried project state \u2014 ticket DAGs, data contracts, decisions \u2014 so any session, tool, or teammate continues work instead of restarting it. Includes the full conductor loop: worktree-isolated subagents, atomic merges.",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "plugins": [
     {

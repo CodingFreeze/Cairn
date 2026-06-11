@@ -16,11 +16,11 @@ merge, RCA + readiness surfaces, CI + PR-bot integrations. Full detail in the
 
 | Item | Status | What it is |
 |---|---|---|
-| Continuation eval results | in flight (`feat/eval-harness`) | The `evals/` benchmark from the [case study](./docs/CASE-STUDY.md): kill runs at adversarial points, measure cold-session reconvergence. Results get published, not summarized. |
-| Mission live mode | in flight (`feat/mission-live`) | A long-running mission surface over the reconciler — watch the board move ticket-by-ticket instead of polling `cairn status`. |
-| Team vault mechanics | in flight (`feat/team-vault`) | Multi-writer conventions for a shared `.cairn/`: merge-friendly vault folds, ownership rules, conflict story for two teammates' agents on one board. |
-| Contracts as code | in flight (`feat/contracts-as-code`) | `vault/schema.md` prose contracts get a machine-checkable form — producers declare, consumers verify, the conform-or-explain rule becomes enforceable. |
-| Issues sync | in flight (`feat/issues-sync`) | Two-way bridge between `board.jsonl` and external trackers (GitHub Issues first), building on the existing Linear/Jira MCP flows. |
+| Continuation eval results | shipped (v0.3.0) | The `evals/` benchmark from the [case study](./docs/CASE-STUDY.md): kill runs at adversarial points, measure cold-session reconvergence. Results get published, not summarized. |
+| Mission live mode | shipped (v0.3.0) | A long-running mission surface over the reconciler — watch the board move ticket-by-ticket instead of polling `cairn status`. |
+| Team vault mechanics | shipped (v0.3.0) | Multi-writer conventions for a shared `.cairn/`: merge-friendly vault folds, ownership rules, conflict story for two teammates' agents on one board. |
+| Contracts as code | shipped (v0.3.0) | `vault/schema.md` prose contracts get a machine-checkable form — producers declare, consumers verify, the conform-or-explain rule becomes enforceable. |
+| Issues sync | shipped (v0.3.0) | Two-way bridge between `board.jsonl` and external trackers (GitHub Issues first), building on the existing Linear/Jira MCP flows. |
 
 ## Mid — design
 

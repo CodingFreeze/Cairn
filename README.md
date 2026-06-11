@@ -16,7 +16,7 @@ Multi-day, multi-session, multi-agent work — carried by the repo itself. A Cla
 (portable to Cursor & Codex) that turns `git` into the substrate agents continue work on,
 instead of the place they dump it.
 
-![tests](https://img.shields.io/badge/tests-425%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-537%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.9%2B%20·%20stdlib--only%20core-blue)
 ![plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 ![portable](https://img.shields.io/badge/portable-CC%20·%20Cursor%20·%20Codex-informational)
@@ -344,7 +344,7 @@ Factory clone; it's the local, git-native distillation of what I found valuable.
 ## Tests
 
 ```bash
-python -m pytest          # 425 tests
+python -m pytest          # 537 tests
 bash scripts/test.sh      # one-command runner, non-zero on failure
 ```
 
