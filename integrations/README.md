@@ -11,7 +11,8 @@ committed files (a CI job, an MCP server, a cron line) plugs in without a platfo
 |---|---|
 | `github/cairn-run.yml`, `github/cairn-bot.yml` | **Templates.** Reviewed for the security model below; not exercised against a live repo. Dry-run on a fork first. |
 | `#remember` hook (`hooks/cairn-remember-hook.sh`) | Ships with the plugin; same guarded-CLI path as the tested SessionEnd hook. |
-| Tracker / incident / cron recipes below | **Documented patterns**, not shipped code. They compose tested Cairn commands. |
+| `cairn sync` (GitHub Issues, §2) | **Shipped + tested.** Every `gh` call in the suite is mocked (`tests/test_synccmd.py`); not exercised against a live repo — run the plan output past your eyes before `--apply`. |
+| Linear/Jira / incident / cron recipes below | **Documented patterns**, not shipped code. They compose tested Cairn commands. |
 
 ## 1. GitHub Actions
 
@@ -48,7 +49,42 @@ reduced to one allowlisted keyword and never touches a shell unquoted; the agent
 tools and the workflow has no `contents: write` — worst case for hostile diff text is a misleading
 comment, not pushed code. Details in the file header.
 
-## 2. Issue trackers — Linear / Jira
+## 2. Issue trackers — GitHub Issues (native) / Linear / Jira
+
+### GitHub Issues — `cairn sync` (native, tested)
+
+For GitHub the board doesn't need an MCP bridge: `cairn sync` speaks to GitHub Issues directly
+through the `gh` CLI (`gh` must be installed and authenticated; without it the command fails
+with `gh CLI required for sync`).
+
+**Report-first, always.** Sync never silently mutates anything — the default output of both
+directions is a JSON diff plan; only `--apply` executes it:
+
+```bash
+cairn sync push [--repo OWNER/NAME]            # plan: board -> issues (no gh needed to plan)
+cairn sync push --apply                        # execute the plan via gh
+cairn sync pull [--repo OWNER/NAME]            # plan: issues -> board (read-only gh)
+```
+
+What each direction plans:
+
+- **push** — every board ticket with no issue mapping gets a *create issue* plan (title
+  `[<TID>] <ticket spec title>`, label `cairn`, body = the ticket spec markdown plus the board
+  fields); every mapped ticket that moved to `merged`/`cancelled` gets a *close issue* plan.
+- **pull** — a `cairn`-labeled issue closed on GitHub while the board ticket is still live is
+  **flagged, never auto-merged**: git truth beats issue state, so the plan tells you to run
+  `cairn reconcile` and let the repo decide. A new `cairn`-labeled issue with no board ticket
+  yields a *suggest board add* plan with a ready-to-run `cairn board add` command.
+
+The ticket↔issue mapping lives in `.cairn/sync.json` (`{tid: issue_number}`), written atomically
+through the same symlink-safe I/O as the board — board fields stay locked down.
+
+**Security model**: `gh` is invoked with list-form argv only (never a shell), so titles and
+bodies are single arguments that can't be parsed as options or shell text; a `--repo` value must
+match plain `OWNER/NAME` (and may not start with `-`) before it reaches `gh`; pull is read-only
+against GitHub and never writes the board.
+
+### Linear / Jira — via MCP
 
 Factory assigns a ticket to a Droid and gets a PR back. The local adaptation: **connect your
 tracker's MCP server in Claude Code, and let the Cairn board mirror the tracker.**
