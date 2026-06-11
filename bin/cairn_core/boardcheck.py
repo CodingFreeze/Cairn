@@ -163,3 +163,35 @@ def validate_read_entry(path, e):
         if not isinstance(d, str) or not ID_RE.fullmatch(d) or \
                 ".." in d or "\n" in d:
             raise ValueError(f"{path}: invalid depends_on id: {d!r}")
+
+
+# --- CLI key=value coercion (moved from bin/cairn for the 300-line cap) ------
+# Field sets the CLI is permitted to set (mirrors SETTABLE_FIELDS by type).
+_LIST_FIELDS = {"depends_on", "files_owned", "produces", "consumes"}
+_INT_OR_NULL_FIELDS = {"pr"}
+_STR_OR_NULL_FIELDS = {"branch", "owner", "base_sha"}
+_STR_FIELDS = {"status"}
+_BOOL_FIELDS = {"schema"}
+
+
+def coerce_cli_field(key, value):
+    """Coerce a single key=value string pair to the correct Python type.
+
+    Raises ValueError on an unknown key or bad bool; the CLI's main() maps it
+    to the same `error: ...` message/exit code the old in-CLI version printed.
+    json.JSONDecodeError (a ValueError subclass) propagates for list fields.
+    """
+    import json
+    if key in _LIST_FIELDS:
+        return json.loads(value)  # expects a JSON list; JSONDecodeError propagates
+    if key in _INT_OR_NULL_FIELDS:
+        return None if value == "null" else int(value)
+    if key in _STR_OR_NULL_FIELDS:
+        return None if value == "null" else value
+    if key in _STR_FIELDS:
+        return value
+    if key in _BOOL_FIELDS:
+        if value in ("true", "false"):
+            return value == "true"
+        raise ValueError(f"{key} must be true or false, got: {value}")
+    raise ValueError(f"field not settable: {key}")
