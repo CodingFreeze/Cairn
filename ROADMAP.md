@@ -1,6 +1,6 @@
 # Roadmap
 
-> Honest status labels: **in flight** = on a branch in this repo, not merged.
+> Honest status labels reflect merge state on main.
 > **design** = shaped, not started. **exploratory** = direction, no commitment.
 > Nothing below is shipped until it lands on `main` and the CHANGELOG says so.
 
@@ -12,7 +12,7 @@ merge, RCA + readiness surfaces, CI + PR-bot integrations. Full detail in the
 [CHANGELOG](./CHANGELOG.md); the story behind it in the
 [case study](./docs/CASE-STUDY.md).
 
-## Near — in flight (branches exist, unmerged)
+## Near — shipped in v0.3.0
 
 | Item | Status | What it is |
 |---|---|---|
