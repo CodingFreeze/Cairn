@@ -1,0 +1,47 @@
+{
+  "name": "cairn",
+  "version": "0.2.0",
+  "description": "Memory-first local replica of managed multi-agent orchestration: durable git-vault memory + resumable, role-separated subagent loop. Portable across Claude Code, Cursor, and Codex.",
+  "author": {
+    "name": "CodingFreeze",
+    "email": "204774984+CodingFreeze@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/CodingFreeze/Cairn",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "memory",
+    "multi-agent",
+    "git-native",
+    "resumable"
+  ],
+  "commands": [
+    "./commands/cairn-dismiss.md",
+    "./commands/cairn-handoff.md",
+    "./commands/cairn-map.md",
+    "./commands/cairn-plan.md",
+    "./commands/cairn-rca.md",
+    "./commands/cairn-readiness.md",
+    "./commands/cairn-recall.md",
+    "./commands/cairn-report.md",
+    "./commands/cairn-resume.md",
+    "./commands/cairn-run.md",
+    "./commands/cairn-status.md",
+    "./commands/cairn-vault.md"
+  ],
+  "agents": [
+    "./agents/cairn-implementer.md",
+    "./agents/cairn-reviewer.md",
+    "./agents/cairn-tester.md",
+    "./agents/cairn-security.md"
+  ],
+  "skills": [
+    "./skills/cairn-vault/SKILL.md",
+    "./skills/cairn-map/SKILL.md",
+    "./skills/cairn-recall/SKILL.md",
+    "./skills/cairn-handoff/SKILL.md",
+    "./skills/cairn-adapter/SKILL.md",
+    "./skills/cairn-dismiss/SKILL.md"
+  ],
+  "hooks": "./hooks/hooks.json"
+}

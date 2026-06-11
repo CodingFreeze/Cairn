@@ -1,0 +1,131 @@
+# cairn-bot.yml — @cairn comment-triggered PR bot.
+# Factory parity: Droid Action's `@droid review` / `@droid security` comment
+# triggers (capability map §6, P1 gap).
+#
+# SETUP: copy into your repo at .github/workflows/cairn-bot.yml and add an
+# `ANTHROPIC_API_KEY` repository secret. Then comment on any PR:
+#   @cairn review     — code review of the PR diff (Cairn reviewer role)
+#   @cairn security   — security pass over the diff (OWASP-flavored checklist)
+#   @cairn rca        — root-cause analysis of the failure the PR addresses
+#
+# SECURITY MODEL — this is a prompt-injection surface; read before enabling.
+#   - WHO can trigger: only comment authors with association OWNER / MEMBER /
+#     COLLABORATOR. Drive-by accounts cannot invoke the bot. This is the primary
+#     gate: a comment body is attacker-controlled text on public repos.
+#   - HARD RULE: the comment body (and every other github.* context value) is
+#     NEVER interpolated into a `run:` script. All values cross into shell via
+#     `env:` indirection, where they are inert data. The command keyword is
+#     extracted by an anchored regex; everything after it is discarded.
+#   - WHAT the agent can do: read-only tools (Read/Glob/Grep + Bash for git
+#     log/diff inspection). It cannot edit files, and this workflow has no
+#     `contents: write`. Residual risk: hostile text in the PR diff can at most
+#     steer the model into writing a misleading *comment* — it cannot push code
+#     or exfiltrate secrets via tools. Treat bot output as advice, not authority.
+#   - SUPPLY CHAIN: pin actions to full commit SHAs in production
+#     (e.g. actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0).
+
+name: cairn-bot
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  # One bot run per PR at a time; newest command wins.
+  group: cairn-bot-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  cairn-bot:
+    # Gate 1 (expression context — not shell, safe to reference event fields):
+    # PR comments only, trusted author associations only, @cairn-prefixed only.
+    if: >-
+      github.event.issue.pull_request != null &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      startsWith(github.event.comment.body, '@cairn')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Parse command
+        id: cmd
+        # Gate 2: extract exactly one allowlisted keyword. The body enters only
+        # as $COMMENT_BODY (env indirection); nothing from it is executed and
+        # nothing beyond the keyword survives into later steps.
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          CMD="$(printf '%s' "$COMMENT_BODY" | head -n1 \
+            | grep -Eo '^@cairn[[:space:]]+(review|security|rca)' \
+            | awk '{print $2}' || true)"
+          if [ -z "$CMD" ]; then
+            echo "No recognized @cairn command (review|security|rca) — skipping."
+          fi
+          echo "command=$CMD" >> "$GITHUB_OUTPUT"
+
+      # PIN to a commit SHA in production (see header).
+      - name: Checkout PR head
+        if: steps.cmd.outputs.command != ''
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fetch PR branch and diff
+        if: steps.cmd.outputs.command != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh pr checkout "$PR_NUMBER"
+          gh pr diff "$PR_NUMBER" > /tmp/cairn-pr.diff
+          gh pr view "$PR_NUMBER" --json title,body,baseRefName \
+            > /tmp/cairn-pr-meta.json
+
+      - name: Install Claude Code CLI
+        if: steps.cmd.outputs.command != ''
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Cairn role
+        if: steps.cmd.outputs.command != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CAIRN_CMD: ${{ steps.cmd.outputs.command }}
+        # Role prompts are embedded so the workflow is self-contained in repos
+        # that don't vendor the Cairn plugin. If `.cairn/vault/` is committed,
+        # the agent is told to consult it — same memory the local roles use.
+        run: |
+          case "$CAIRN_CMD" in
+            review)
+              ROLE="You are the Cairn reviewer. Review the PR diff at /tmp/cairn-pr.diff for correctness bugs, contract violations, missed edge cases, and divergence from the ticket spec. Be specific: cite file and line. Verdict line first: PASS or FAIL with one-sentence reason."
+              ;;
+            security)
+              ROLE="You are the Cairn security reviewer. Audit the PR diff at /tmp/cairn-pr.diff against the OWASP Top 10 and insecure-default anti-patterns (eval/exec, innerHTML/dangerouslySetInnerHTML, pickle, command/SQL injection, path traversal, secrets in code, untrusted interpolation in CI). Report only findings you are confident in, with file:line and a concrete fix."
+              ;;
+            rca)
+              ROLE="You are the Cairn reliability role. Using the PR diff at /tmp/cairn-pr.diff, PR metadata at /tmp/cairn-pr-meta.json, and recent git history, produce a root-cause analysis of the defect this PR addresses: symptom, root cause, why it escaped, whether the fix is complete, and one prevention follow-up suitable for a vault issues entry."
+              ;;
+          esac
+          claude -p "$ROLE PR metadata: /tmp/cairn-pr-meta.json. If a .cairn/vault/ directory exists in the repo, read decisions.md and issues.md first for project conventions and known fix-forward remedies. Write your final report in GitHub-flavored markdown to /tmp/cairn-reply.md (and nothing else)." \
+            --permission-mode acceptEdits \
+            --allowedTools "Read,Glob,Grep,Bash(git log:*),Bash(git diff:*),Bash(git show:*),Write(/tmp/cairn-reply.md)" \
+            || echo "Cairn run failed; posting fallback."
+          if [ ! -s /tmp/cairn-reply.md ]; then
+            printf '%s\n' "cairn-bot: the $CAIRN_CMD run did not produce a report — check the Actions log." > /tmp/cairn-reply.md
+          fi
+
+      - name: Post result comment
+        if: steps.cmd.outputs.command != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          CAIRN_CMD: ${{ steps.cmd.outputs.command }}
+        run: |
+          {
+            printf '## cairn %s\n\n' "$CAIRN_CMD"
+            cat /tmp/cairn-reply.md
+            printf '\n\n---\n*cairn-bot · advisory output, verify before acting*\n'
+          } > /tmp/cairn-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/cairn-comment.md

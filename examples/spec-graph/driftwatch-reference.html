@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cairn spec graph</title>
+<style>
+:root {
+  --bg: #0d1117; --grid: #161b22; --card: #1c2128; --card-2: #22272e;
+  --line: #30363d; --hair: #21262d; --ink: #e6edf3; --dim: #768390; --mut: #adbac7;
+  --accent: #d8915f; --accent-hi: #f0883e; --dep: #424a53;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "SF Pro Text", Segoe UI, Roboto, Helvetica, sans-serif;
+  background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+header { display: flex; align-items: center; gap: 16px; padding: 11px 18px;
+  border-bottom: 1px solid var(--hair); background: #0d1117; }
+header .brand { font-weight: 650; font-size: 14px; letter-spacing: .2px; }
+header .brand .dot { color: var(--accent); }
+header .legend { display: flex; gap: 14px; font-size: 11px; color: var(--dim); align-items: center; }
+header .legend i { display: inline-block; width: 16px; height: 0; vertical-align: middle;
+  margin-right: 5px; border-top-width: 2px; border-top-style: solid; }
+header .legend .l-dep i { border-top-color: var(--dep); border-top-style: dashed; }
+header .legend .l-schema i { border-top-color: var(--accent); }
+header .legend .l-crit i { border-top-color: var(--accent-hi); border-top-width: 2.5px; }
+header .spacer { flex: 1; }
+#chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chip, #fit, #focus { cursor: pointer; font: 600 11px/1 inherit; letter-spacing: .3px;
+  padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line);
+  background: transparent; color: var(--dim); transition: .14s; }
+.chip { color: var(--c, #768390); border-color: color-mix(in srgb, var(--c, #768390) 45%, transparent); }
+.chip:not(.on) { opacity: .4; filter: grayscale(.5); }
+#focus.on { color: var(--accent-hi); border-color: var(--accent-hi); background: #f0883e1a; }
+#fit:hover, #focus:hover { color: var(--ink); border-color: #475059; }
+#graph { width: 100vw; height: calc(100vh - 50px); cursor: grab; display: block;
+  background-image: radial-gradient(var(--grid) 1px, transparent 0); background-size: 28px 28px; }
+#graph:active { cursor: grabbing; }
+
+.node { cursor: pointer; transition: opacity .15s; }
+.node .card { fill: var(--card); stroke: var(--line); stroke-width: 1; }
+.node:hover .card { fill: var(--card-2); stroke: #475059; }
+.node.schema .card { stroke: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.node.crit .card { stroke: var(--accent-hi); filter: drop-shadow(0 0 4px #f0883e55); }
+.schemaBar { fill: var(--accent); }
+.node.crit .schemaBar { fill: var(--accent-hi); }
+.nid { fill: var(--ink); font-size: 12px; font-weight: 650; }
+.ntitle { fill: var(--mut); font-size: 10.5px; }
+.badge { fill: var(--accent); font-size: 7.5px; font-weight: 700; letter-spacing: .6px; text-anchor: end; }
+.node.crit .badge { fill: var(--accent-hi); }
+
+.edge { fill: none; }
+.depEdge { stroke: var(--dep); stroke-width: 1.1; stroke-dasharray: 4 3; }
+.schemaEdge { stroke: var(--accent); stroke-width: 1.5; stroke-opacity: .9; }
+.critEdge { stroke: var(--accent-hi); stroke-width: 2.2; filter: drop-shadow(0 0 3px #f0883e66); }
+
+#drawer { position: fixed; top: 0; right: 0; width: 408px; height: 100%;
+  background: #11151b; border-left: 1px solid var(--line); transform: translateX(100%);
+  transition: transform .2s cubic-bezier(.4,0,.2,1); padding: 22px; overflow: auto;
+  box-shadow: -24px 0 60px rgba(0,0,0,.5); }
+#drawer.open { transform: translateX(0); }
+#d-id { font: 800 12px/1 inherit; letter-spacing: 1px; color: var(--accent); margin-bottom: 3px; }
+#d-title { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
+#d-status, #d-schema { display: inline-block; padding: 4px 9px; border-radius: 999px;
+  font: 700 9.5px/1 inherit; letter-spacing: .5px; }
+#d-schema { display: none; margin-left: 8px; color: var(--accent); border: 1px solid var(--accent);
+  background: #d8915f1a; }
+.k { color: var(--dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; margin: 16px 0 5px; }
+#d-produces, #d-consumes, #d-deps { color: var(--ink); font-size: 13px; }
+#drawer pre { white-space: pre-wrap; word-wrap: break-word; background: #0d1117;
+  border: 1px solid var(--line); border-radius: 9px; padding: 13px; font-size: 12px;
+  line-height: 1.5; color: #c9d1d9; }
+#d-close { float: right; cursor: pointer; border: 0; background: none; color: var(--dim); font-size: 22px; line-height: 1; }
+#d-close:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Cairn <span class="dot">●</span> spec graph</span>
+  <span class="legend">
+    <span class="l-dep"><i></i>depends-on</span>
+    <span class="l-schema"><i></i>schema dep</span>
+    <span class="l-crit"><i></i>lock-first chain</span>
+  </span>
+  <span class="spacer"></span>
+  <div id="chips"></div>
+  <button id="focus">Schema chain</button>
+  <button id="fit">Fit</button>
+</header>
+<svg id="graph">
+<defs>
+<marker id="arrowD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5"
+  markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#424a53"></path></marker>
+<marker id="arrowS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+  markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d8915f"></path></marker>
+<marker id="arrowC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5"
+  markerHeight="7.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0883e"></path></marker>
+</defs>
+</svg>
+<aside id="drawer">
+<button id="d-close" aria-label="close">&times;</button>
+<div id="d-id">—</div>
+<h2 id="d-title"></h2>
+<span id="d-status"></span><span id="d-schema">SCHEMA</span>
+<div class="k">Produces (contracts)</div><div id="d-produces"></div>
+<div class="k">Consumes (contracts)</div><div id="d-consumes"></div>
+<div class="k">Depends on</div><div id="d-deps"></div>
+<div class="k">Spec</div><pre id="d-spec"></pre>
+</aside>
+<script id="cairn-spec-data" type="application/json">[{"consumes": [], "depends_on": [], "id": "T1", "produces": [], "schema": false, "spec": "# T1 \u2014 Scaffold \u0026 tooling\n\n## Goal\nScaffold \u0026 tooling.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T1 \u2014 Scaffold \u0026 tooling"}, {"consumes": [], "depends_on": ["T4", "T5", "T6", "T7", "T8", "T9"], "id": "T10", "produces": [], "schema": false, "spec": "# T10 \u2014 Orchestration pipeline\n\n## Goal\nOrchestration pipeline.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T10 \u2014 Orchestration pipeline"}, {"consumes": ["StatusHistory"], "depends_on": ["T9"], "id": "T11", "produces": [], "schema": false, "spec": "# T11 \u2014 Dashboard API\n\n## Goal\nDashboard API.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T11 \u2014 Dashboard API"}, {"consumes": [], "depends_on": ["T11"], "id": "T12", "produces": [], "schema": false, "spec": "# T12 \u2014 Dashboard UI\n\n## Goal\nDashboard UI.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T12 \u2014 Dashboard UI"}, {"consumes": ["ChangeAST"], "depends_on": ["T6"], "id": "T13", "produces": [], "schema": false, "spec": "# T13 \u2014 Differ tests\n\n## Goal\nDiffer tests.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T13 \u2014 Differ tests"}, {"consumes": ["Classification"], "depends_on": ["T7"], "id": "T14", "produces": [], "schema": false, "spec": "# T14 \u2014 Classifier tests\n\n## Goal\nClassifier tests.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T14 \u2014 Classifier tests"}, {"consumes": [], "depends_on": ["T1", "T13", "T14"], "id": "T15", "produces": [], "schema": false, "spec": "# T15 \u2014 CI pipeline\n\n## Goal\nCI pipeline.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T15 \u2014 CI pipeline"}, {"consumes": ["ConfigSchema", "SnapshotModel"], "depends_on": ["T2", "T3"], "id": "T16", "produces": [], "schema": false, "spec": "# T16 \u2014 Sample config\n\n## Goal\nSample config.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T16 \u2014 Sample config"}, {"consumes": [], "depends_on": ["T1"], "id": "T2", "produces": ["ConfigSchema"], "schema": true, "spec": "# T2 \u2014 Config schema\n\n## Goal\nConfig schema.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T2 \u2014 Config schema"}, {"consumes": ["ConfigSchema"], "depends_on": ["T1"], "id": "T3", "produces": ["SnapshotModel"], "schema": true, "spec": "# T3 \u2014 Snapshot store\n\n## Goal\nSnapshot store.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T3 \u2014 Snapshot store"}, {"consumes": ["ConfigSchema", "SnapshotModel"], "depends_on": ["T2", "T3"], "id": "T4", "produces": [], "schema": false, "spec": "# T4 \u2014 Fetcher\n\n## Goal\nFetcher.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T4 \u2014 Fetcher"}, {"consumes": ["ConfigSchema"], "depends_on": ["T2", "T4"], "id": "T5", "produces": [], "schema": false, "spec": "# T5 \u2014 Scheduler\n\n## Goal\nScheduler.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T5 \u2014 Scheduler"}, {"consumes": ["SnapshotModel"], "depends_on": ["T3"], "id": "T6", "produces": ["ChangeAST"], "schema": true, "spec": "# T6 \u2014 Differ\n\n## Goal\nDiffer.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T6 \u2014 Differ"}, {"consumes": ["ChangeAST"], "depends_on": ["T6"], "id": "T7", "produces": ["Classification"], "schema": true, "spec": "# T7 \u2014 Classifier\n\n## Goal\nClassifier.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T7 \u2014 Classifier"}, {"consumes": ["ChangeAST", "Classification"], "depends_on": ["T7"], "id": "T8", "produces": ["ReportSchema"], "schema": true, "spec": "# T8 \u2014 Report gen\n\n## Goal\nReport gen.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T8 \u2014 Report gen"}, {"consumes": ["ChangeAST", "Classification", "ReportSchema", "SnapshotModel"], "depends_on": ["T3", "T6", "T7", "T8"], "id": "T9", "produces": ["StatusHistory"], "schema": true, "spec": "# T9 \u2014 Results store\n\n## Goal\nResults store.\n", "status": "todo", "style": {"fill": "#eaeef2", "stroke": "#57606a"}, "title": "T9 \u2014 Results store"}]</script>
+<script>
+(function () {
+  var DATA = JSON.parse(document.getElementById('cairn-spec-data').textContent || '[]');
+  var byId = Object.create(null);
+  DATA.forEach(function (n) { byId[n.id] = n; });
+
+  // ---- rank = longest dependency depth from a root (memoized, cycle-guarded) ----
+  var depth = Object.create(null);
+  function rank(id, seen) {
+    if (depth[id] != null) return depth[id];
+    seen = seen || Object.create(null);
+    if (seen[id]) return 0;
+    seen[id] = true;
+    var n = byId[id], d = 0;
+    (n && n.depends_on || []).forEach(function (p) { if (byId[p]) d = Math.max(d, rank(p, seen) + 1); });
+    depth[id] = d; return d;
+  }
+  DATA.forEach(function (n) { rank(n.id); });
+
+  // ---- data-contract layer: producer index + schema edges (producer -> consumer) ----
+  var producers = Object.create(null);   // contract -> [ids that produce it]
+  DATA.forEach(function (n) {
+    (n.produces || []).forEach(function (c) { (producers[c] = producers[c] || []).push(n.id); });
+  });
+  var schemaPair = Object.create(null);  // "p>c" -> true when c consumes a contract p produces
+  DATA.forEach(function (n) {
+    (n.consumes || []).forEach(function (c) {
+      (producers[c] || []).forEach(function (p) { if (p !== n.id) schemaPair[p + '>' + n.id] = true; });
+    });
+  });
+  function isSchemaNode(n) { return !!n.schema || (n.produces || []).length > 0; }
+
+  // ---- union of edges (depends_on ∪ schema), classified ----
+  var edges = [], eseen = Object.create(null);
+  function addEdge(p, c) {
+    if (!byId[p] || !byId[c] || p === c) return;
+    var k = p + '>' + c; if (eseen[k]) return; eseen[k] = true;
+    edges.push({ p: p, c: c, schema: !!schemaPair[k] });
+  }
+  DATA.forEach(function (n) { (n.depends_on || []).forEach(function (p) { addEdge(p, n.id); }); });
+  Object.keys(schemaPair).forEach(function (k) { var s = k.split('>'); addEdge(s[0], s[1]); });
+
+  // ---- lock-first schema chain = longest path over schema edges ----
+  var sadj = Object.create(null);
+  edges.forEach(function (e) { if (e.schema) (sadj[e.p] = sadj[e.p] || []).push(e.c); });
+  var chainLen = Object.create(null), chainNext = Object.create(null);
+  function clen(id, seen) {
+    if (chainLen[id] != null) return chainLen[id];
+    seen = seen || Object.create(null); if (seen[id]) return 0; seen[id] = true;
+    var best = 0, nx = null;
+    (sadj[id] || []).forEach(function (c) { var v = clen(c, seen) + 1; if (v > best) { best = v; nx = c; } });
+    chainLen[id] = best; chainNext[id] = nx; return best;
+  }
+  DATA.forEach(function (n) { clen(n.id); });
+  var chainNodes = Object.create(null), chainEdges = Object.create(null), best = -1, head = null;
+  DATA.forEach(function (n) { if (chainLen[n.id] > best && isSchemaNode(n)) { best = chainLen[n.id]; head = n.id; } });
+  for (var cur = head; cur != null && chainNext[cur] != null; cur = chainNext[cur]) {
+    chainNodes[cur] = true; chainNodes[chainNext[cur]] = true; chainEdges[cur + '>' + chainNext[cur]] = true;
+  }
+  if (head != null && best > 0) chainNodes[head] = true;
+
+  // ---- top-down layered layout (rows by rank, centered, deterministic) ----
+  var NH = 46, ROWGAP = 78, COLGAP = 34, PAD = 60;
+  function cleanTitle(n) {
+    var t = n.title || '';
+    var re = new RegExp('^\\s*' + n.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[\\u2014:\\-]\\s*');
+    return (t.replace(re, '') || n.id);
+  }
+  function nodeLabel(n) { var s = cleanTitle(n); return s.length > 22 ? s.slice(0, 21) + '…' : s; }
+  function nodeW(n) { return Math.max(112, (n.id.length + nodeLabel(n).length + 1) * 7.6 + 26); }
+  var rows = Object.create(null);
+  DATA.forEach(function (n) { (rows[depth[n.id]] = rows[depth[n.id]] || []).push(n.id); });
+  var pos = Object.create(null);
+  Object.keys(rows).sort(function (a, b) { return a - b; }).forEach(function (r) {
+    var ids = rows[r].sort(), total = 0;
+    ids.forEach(function (id) { total += nodeW(byId[id]) + COLGAP; });
+    total -= COLGAP;
+    var x = -total / 2;
+    ids.forEach(function (id) { var w = nodeW(byId[id]); pos[id] = { x: x, y: r * (NH + ROWGAP), w: w }; x += w + COLGAP; });
+  });
+
+  var SVGNS = ['ht', 'tp:', '//www.w3.org/2000/svg'].join('');
+  var svg = document.getElementById('graph');
+  function mk(t, a) { var e = document.createElementNS(SVGNS, t); for (var k in a) e.setAttribute(k, a[k]); return e; }
+  var gE = mk('g', {}), gN = mk('g', {}); svg.appendChild(gE); svg.appendChild(gN);
+
+  // right margin for routing rank-skipping edges out of the node column (Factory-style)
+  var layoutMaxX = -1e9;
+  DATA.forEach(function (n) { var p = pos[n.id]; if (p) layoutMaxX = Math.max(layoutMaxX, p.x + p.w); });
+
+  // ---- orthogonal elbow edges (parent bottom -> child top); skip-edges hug a side lane ----
+  var lane = 0, skipMaxX = layoutMaxX;
+  edges.sort(function (a, b) { return (a.p + a.c < b.p + b.c) ? -1 : 1; }).forEach(function (e) {
+    var a = pos[e.p], b = pos[e.c]; if (!a || !b) return;
+    var sx = a.x + a.w / 2, sy = a.y + NH, tx = b.x + b.w / 2, ty = b.y;
+    var crit = chainEdges[e.p + '>' + e.c];
+    var cls = crit ? 'critEdge' : (e.schema ? 'schemaEdge' : 'depEdge');
+    var d;
+    if (depth[e.c] - depth[e.p] > 1) {           // skip edge: route out to the right lane
+      var lx = layoutMaxX + 30 + (lane++ % 5) * 18; skipMaxX = Math.max(skipMaxX, lx);
+      d = 'M' + sx + ',' + sy + ' L' + sx + ',' + (sy + 22) + ' L' + lx + ',' + (sy + 22)
+        + ' L' + lx + ',' + (ty - 22) + ' L' + tx + ',' + (ty - 22) + ' L' + tx + ',' + ty;
+    } else {                                       // adjacent rank: simple mid-Y elbow
+      var midY = sy + (ty - sy) / 2;
+      d = 'M' + sx + ',' + sy + ' L' + sx + ',' + midY + ' L' + tx + ',' + midY + ' L' + tx + ',' + ty;
+    }
+    gE.appendChild(mk('path', { d: d, 'class': 'edge ' + cls, 'data-kind': e.schema ? 'schema' : 'dep',
+      'marker-end': 'url(#' + (crit ? 'arrowC' : (e.schema ? 'arrowS' : 'arrowD')) + ')' }));
+  });
+
+  // ---- nodes ----
+  var STATUS = { todo: '#7d8590', dispatched: '#d8915f', 'in-progress': '#d8915f',
+    'pr-open': '#539bf5', merged: '#57ab5a', blocked: '#e5534b' };
+  DATA.forEach(function (n) {
+    var p = pos[n.id]; if (!p) return;
+    var sch = isSchemaNode(n), crit = chainNodes[n.id];
+    var g = mk('g', { transform: 'translate(' + p.x + ',' + p.y + ')', 'class': 'node'
+      + (sch ? ' schema' : '') + (crit ? ' crit' : ''), 'data-status': n.status });
+    g.appendChild(mk('rect', { width: p.w, height: NH, rx: 7, 'class': 'card' }));
+    if (sch) g.appendChild(mk('rect', { width: p.w, height: 3, rx: 1.5, 'class': 'schemaBar' }));
+    g.appendChild(mk('circle', { cx: 13, cy: NH / 2, r: 4, fill: STATUS[n.status] || '#7d8590' }));
+    var label = mk('text', { x: 26, y: NH / 2 - 3, 'class': 'nid' }); label.textContent = n.id;
+    var ttl = mk('text', { x: 26, y: NH / 2 + 11, 'class': 'ntitle' }); ttl.textContent = nodeLabel(n);
+    g.appendChild(label); g.appendChild(ttl);
+    if (sch) { var bd = mk('text', { x: p.w - 9, y: 14, 'class': 'badge' }); bd.textContent = 'SCHEMA'; g.appendChild(bd); }
+    g.addEventListener('click', function () { openDrawer(n); });
+    gN.appendChild(g);
+  });
+
+  // ---- fit-to-content viewBox ----
+  var minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  DATA.forEach(function (n) { var p = pos[n.id]; if (!p) return;
+    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x + p.w); maxY = Math.max(maxY, p.y + NH); });
+  maxX = Math.max(maxX, skipMaxX + 12);
+  if (minX > maxX) { minX = 0; minY = 0; maxX = 600; maxY = 400; }
+  var vb = { x: minX - PAD, y: minY - PAD, w: (maxX - minX) + 2 * PAD, h: (maxY - minY) + 2 * PAD, s: 1 };
+  var home = { x: vb.x, y: vb.y, w: vb.w, h: vb.h };
+  function apply() { svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + (vb.w / vb.s) + ' ' + (vb.h / vb.s)); }
+  apply();
+  var drag = null;
+  svg.addEventListener('mousedown', function (e) { drag = { x: e.clientX, y: e.clientY, ox: vb.x, oy: vb.y }; });
+  window.addEventListener('mousemove', function (e) { if (!drag) return;
+    vb.x = drag.ox - (e.clientX - drag.x) / vb.s; vb.y = drag.oy - (e.clientY - drag.y) / vb.s; apply(); });
+  window.addEventListener('mouseup', function () { drag = null; });
+  svg.addEventListener('wheel', function (e) { e.preventDefault();
+    vb.s = Math.min(4, Math.max(0.2, vb.s * (e.deltaY < 0 ? 1.1 : 0.9))); apply(); }, { passive: false });
+  document.getElementById('fit').addEventListener('click', function () {
+    vb.x = home.x; vb.y = home.y; vb.w = home.w; vb.h = home.h; vb.s = 1; apply(); });
+
+  // ---- status filter chips + schema-chain focus ----
+  var off = Object.create(null), focus = false;
+  function relabel() {
+    Array.prototype.forEach.call(gN.childNodes, function (g) {
+      var st = g.getAttribute('data-status'), hidden = off[st] === true;
+      var dim = focus && g.className.baseVal.indexOf('crit') < 0;
+      g.style.opacity = hidden ? 0.08 : (dim ? 0.22 : 1);
+    });
+    Array.prototype.forEach.call(gE.childNodes, function (p) {
+      p.style.opacity = focus && p.className.baseVal.indexOf('critEdge') < 0 ? 0.12 : '';
+    });
+  }
+  var bar = document.getElementById('chips'), seen = Object.create(null);
+  DATA.forEach(function (n) { seen[n.status] = true; });
+  Object.keys(seen).sort().forEach(function (st) {
+    var c = document.createElement('button'); c.className = 'chip on'; c.textContent = st;
+    c.style.setProperty('--c', STATUS[st] || '#7d8590');
+    c.addEventListener('click', function () { off[st] = !off[st]; c.classList.toggle('on'); relabel(); });
+    bar.appendChild(c);
+  });
+  var fc = document.getElementById('focus');
+  if (best > 0) fc.addEventListener('click', function () { focus = !focus; fc.classList.toggle('on'); relabel(); });
+  else fc.style.display = 'none';
+
+  // ---- drawer ----
+  function list(arr) { return (arr && arr.length) ? arr.join(', ') : '(none)'; }
+  function openDrawer(n) {
+    document.getElementById('d-id').textContent = n.id;
+    document.getElementById('d-title').textContent = cleanTitle(n);
+    var sb = document.getElementById('d-status'); sb.textContent = n.status;
+    sb.style.background = (STATUS[n.status] || '#7d8590') + '22'; sb.style.color = STATUS[n.status] || '#7d8590';
+    sb.style.border = '1px solid ' + (STATUS[n.status] || '#7d8590');
+    var badge = document.getElementById('d-schema');
+    badge.style.display = isSchemaNode(n) ? 'inline-block' : 'none';
+    document.getElementById('d-produces').textContent = list(n.produces);
+    document.getElementById('d-consumes').textContent = list(n.consumes);
+    document.getElementById('d-deps').textContent = list(n.depends_on);
+    document.getElementById('d-spec').textContent = n.spec || '(no spec text)';
+    document.getElementById('drawer').classList.add('open');
+  }
+  document.getElementById('d-close').addEventListener('click', function () {
+    document.getElementById('drawer').classList.remove('open'); });
+})();
+</script>
+</body>
+</html>

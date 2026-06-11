@@ -1,0 +1,26 @@
+{
+  "name": "cairn",
+  "owner": {
+    "name": "CodingFreeze",
+    "email": "204774984+CodingFreeze@users.noreply.github.com"
+  },
+  "metadata": {
+    "description": "Cairn \u2014 memory-first, git-native local replica of managed multi-agent orchestration.",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "cairn",
+      "source": ".",
+      "description": "Durable git-vault memory + resumable, role-separated subagent orchestration loop. Portable across Claude Code, Cursor, and Codex.",
+      "category": "orchestration",
+      "keywords": [
+        "memory",
+        "orchestration",
+        "multi-agent",
+        "git-native",
+        "resumable"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""Cairn state-engine CLI. Deterministic control-plane operations over .cairn/."""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cairn_core import board, resolve, status, vaultio, handoff, reconcile
+from cairn_core import dismisscmd, readiness, runloop
+from cairn_core import mergeflow
+from cairn_core import init as initmod
+from cairn_core import speccmd
+from cairn_core.safepath import assert_safe_root
+
+TEMPLATES = Path(__file__).resolve().parent.parent / "templates" / "cairn"
+
+# Fields that the CLI is permitted to set (mirrors board._SETTABLE_FIELDS).
+_LIST_FIELDS = {"depends_on", "files_owned", "produces", "consumes"}
+_INT_OR_NULL_FIELDS = {"pr"}; _STR_OR_NULL_FIELDS = {"branch", "owner", "base_sha"}
+_STR_FIELDS = {"status"}
+_BOOL_FIELDS = {"schema"}
+
+
+def find_cairn_dir(start=None):
+    p = Path(start or Path.cwd()).resolve()
+    for cand in [p, *p.parents]:
+        c = cand / ".cairn"
+        if c.is_dir():
+            # Refuse a symlinked .cairn root (a malicious repo could ship .cairn as
+            # a symlink so the auto-running hook reads/writes OUTSIDE the repo).
+            real = assert_safe_root(c)
+            return Path(real)
+    return None
+
+
+def _require_dir():
+    d = find_cairn_dir()
+    if d is None:
+        sys.exit("error: no .cairn directory found (run `cairn init`)")
+    return d
+
+
+def _coerce_field(key, value):
+    """Coerce a single key=value string pair to the correct Python type."""
+    if key in _LIST_FIELDS:
+        return json.loads(value)  # expects a JSON list; JSONDecodeError propagates
+    if key in _INT_OR_NULL_FIELDS:
+        return None if value == "null" else int(value)
+    if key in _STR_OR_NULL_FIELDS:
+        return None if value == "null" else value
+    if key in _STR_FIELDS:
+        return value
+    if key in _BOOL_FIELDS:
+        if value in ("true", "false"):
+            return value == "true"
+        sys.exit(f"error: {key} must be true or false, got: {value}")
+    sys.exit(f"error: field not settable: {key}")
+
+
+def cmd_init(args):
+    target = Path(args.path).resolve()
+    mode = args.mode or initmod.detect_mode(target)
+    cairn = initmod.scaffold(target, mode, TEMPLATES, goal=args.goal)
+    print(f"Initialized .cairn ({mode}) at {cairn}{' · goal stored' if args.goal else ''}")
+
+
+def cmd_board(args):
+    d = _require_dir()
+    if args.action == "add":
+        payload = json.loads(args.payload)  # JSONDecodeError caught by main
+        if "id" not in payload:
+            raise ValueError("payload missing 'id'")
+        print(json.dumps(board.add_entry(d, payload)))
+    elif args.action == "get":
+        e = board.get_entry(d, args.id)
+        print(json.dumps(e) if e else "")
+    elif args.action == "list":
+        print(json.dumps(board.read_board(d)))
+    elif args.action == "set":
+        fields = {}
+        for kv in args.fields:
+            if "=" not in kv:
+                sys.exit(f"error: field must be key=value, got: {kv}")
+            key, _, value = kv.partition("=")
+            fields[key] = _coerce_field(key, value)
+        print(json.dumps(board.set_fields(d, args.id, fields)))
+    elif args.action == "remove":
+        print(json.dumps(board.remove_entry(d, args.id, force=args.force)))
+
+
+def cmd_vault(args):
+    d = _require_dir()
+    if args.action == "append":
+        try:
+            written = vaultio.append(d, args.file, args.text)
+        except ValueError as exc:
+            sys.exit(f"error: {exc}")
+        print("ok" if written else "skipped (duplicate)")
+
+
+def cmd_handoff(args):
+    d = _require_dir()
+    out = handoff.write_pack(d)
+    print(f"Wrote {out}")
+
+
+def cmd_recall(args):
+    hits = vaultio.search(_require_dir(), args.query, scope=args.scope, limit=args.limit)
+    if hits:
+        print("\n".join(f"[{name}] {line}" for name, line in hits))
+    else:
+        print("No matches in flat-file vault. (Enrichment engines, if present, are queried by the cairn-recall skill.)")
+
+
+def cmd_dismiss(args):
+    d = _require_dir()
+    try:
+        candidates = json.loads(args.candidates)
+    except (ValueError, TypeError) as exc:
+        sys.exit(f"error: candidates must be a JSON array: {exc}")
+    captured = dismisscmd.dismiss_candidates(d, candidates)
+    if captured:
+        print(f"Captured {len(captured)} durable fact(s):")
+        for c in captured:
+            print(f"  [{c['kind']}] {c['text']}")
+    else:
+        print("Captured 0 durable facts (nothing new/durable to harvest).")
+
+
+def cmd_harvest_candidates(args):
+    """SessionEnd-hook entry: harvest staged dismiss candidates via dismisscmd
+    (all I/O dir-fd-anchored). Exits 0 silently when nothing is staged."""
+    d = find_cairn_dir()
+    if d is None:
+        return  # no .cairn directory — nothing to harvest, exit 0
+    try:
+        dismisscmd.harvest(d)
+    except json.JSONDecodeError as exc:
+        sys.exit(f"error: dismiss-candidates.json is not valid JSON: {exc}")
+
+
+def _repo_root():
+    """The git repo root containing .cairn (parent of the .cairn dir)."""
+    return _require_dir().parent
+
+
+def _check_base(base, repo=None):
+    """Reject a dashed --base (git option injection) or a nonexistent ref."""
+    if base.startswith("-"):
+        sys.exit(f"error: invalid --base (must not start with '-'): {base!r}")
+    if repo is not None:
+        import subprocess as _sp
+        r = _sp.run(
+            ["git", "rev-parse", "--verify", "--quiet", "--end-of-options",
+             f"{base}^{{commit}}"],
+            cwd=str(repo), capture_output=True,
+        )
+        if r.returncode != 0:
+            sys.exit(f"error: base ref not found: {base}")
+
+
+def cmd_classify(args):
+    d = _require_dir()
+    repo = _repo_root()
+    _check_base(args.base, repo=repo)
+    entry = board.get_entry(d, args.id)
+    if entry is None:
+        sys.exit(f"error: no such ticket: {args.id}")
+    print(reconcile.classify_ticket_state(repo, args.id, entry, base=args.base))
+
+
+def cmd_reconcile(args):
+    d = _require_dir()
+    repo = _repo_root()
+    _check_base(args.base, repo=repo)
+    entries = board.read_board(d)
+    print(json.dumps(reconcile.reconcile_board(repo, entries, base=args.base)))
+
+
+def cmd_next(args):
+    print(resolve.next_ready(board.read_board(_require_dir())) or "")
+
+
+def cmd_status(args):
+    print(status.render(board.read_board(_require_dir())))
+
+
+def cmd_spec(args):
+    for p in speccmd.run(_require_dir(), fmt=args.format):
+        print(f"Wrote {p}")
+        if p.name == "graph.html":  # print a copy-paste-launchable URL (#5)
+            print(f"Open: file://{p}")
+
+
+def cmd_merge(args):
+    print(mergeflow.run(_require_dir(), args.id, base=args.base))
+
+
+def cmd_ready(args):
+    entries = board.read_board(_require_dir())
+    ready = resolve.ready_all(entries)
+    if args.parallel:
+        ready = resolve.parallel_safe(entries, ready)
+    print(json.dumps(ready))
+
+
+def cmd_readiness(args):
+    # Works pre-init: readiness is an adoption check. Prefer the .cairn repo
+    # root when present, else the git toplevel, else cwd.
+    d = find_cairn_dir()
+    root = d.parent if d else (_git_toplevel() or Path.cwd())
+    print(json.dumps(readiness.report(root)))
+
+
+def _git_toplevel():
+    import subprocess
+    r = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                       capture_output=True, text=True)
+    return Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
+
+
+def cmd_step(args):
+    print(json.dumps(runloop.step(_require_dir(), base=args.base, token=args.token)))
+
+
+def cmd_runlock(args):
+    d = _require_dir()
+    if args.action == "acquire":
+        print(json.dumps(runloop.acquire_lock(d, steal=args.steal)))
+    elif args.action == "release":
+        print(json.dumps(runloop.release_lock(d, args.token)))
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="cairn")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    pi = sub.add_parser("init"); pi.add_argument("path", nargs="?", default=".")
+    pi.add_argument("--greenfield", dest="mode", action="store_const", const="greenfield")
+    pi.add_argument("--existing", dest="mode", action="store_const", const="existing")
+    pi.add_argument("--goal", default=None)
+    pi.set_defaults(func=cmd_init, mode=None)
+    sub.add_parser("next").set_defaults(func=cmd_next)
+    sub.add_parser("status").set_defaults(func=cmd_status)
+    pb = sub.add_parser("board")
+    bsub = pb.add_subparsers(dest="action", required=True)
+    ba = bsub.add_parser("add"); ba.add_argument("payload")
+    bg = bsub.add_parser("get"); bg.add_argument("id")
+    bsub.add_parser("list")
+    bs = bsub.add_parser("set"); bs.add_argument("id"); bs.add_argument("fields", nargs="+")
+    br = bsub.add_parser("remove"); br.add_argument("id"); br.add_argument("--force", action="store_true")
+    pb.set_defaults(func=cmd_board)
+    pv = sub.add_parser("vault")
+    vsub = pv.add_subparsers(dest="action", required=True)
+    va = vsub.add_parser("append"); va.add_argument("file"); va.add_argument("text")
+    pv.set_defaults(func=cmd_vault)
+    sub.add_parser("handoff").set_defaults(func=cmd_handoff)
+    pr = sub.add_parser("recall"); pr.add_argument("query")
+    pr.add_argument("--scope", default=None); pr.add_argument("--limit", type=int, default=20)
+    pr.set_defaults(func=cmd_recall)
+    pd = sub.add_parser("dismiss")
+    pd.add_argument("candidates")  # JSON array of {"kind","text"}
+    pd.set_defaults(func=cmd_dismiss)
+    sub.add_parser("harvest-candidates").set_defaults(func=cmd_harvest_candidates)
+    pc = sub.add_parser("classify"); pc.add_argument("id")
+    pc.add_argument("--base", default="main"); pc.set_defaults(func=cmd_classify)
+    pr2 = sub.add_parser("reconcile")
+    pr2.add_argument("--base", default="main"); pr2.set_defaults(func=cmd_reconcile)
+    pm = sub.add_parser("merge"); pm.add_argument("id")
+    pm.add_argument("--base", default="main"); pm.set_defaults(func=cmd_merge)
+    pry = sub.add_parser("ready"); pry.add_argument("--parallel", action="store_true")
+    pry.set_defaults(func=cmd_ready)
+    sub.add_parser("readiness").set_defaults(func=cmd_readiness)
+    pst = sub.add_parser("step"); pst.add_argument("--base", default="main")
+    pst.add_argument("--token", default=None); pst.set_defaults(func=cmd_step)
+    pl = sub.add_parser("run-lock")
+    lsub = pl.add_subparsers(dest="action", required=True)
+    la = lsub.add_parser("acquire"); la.add_argument("--steal", action="store_true")
+    lr = lsub.add_parser("release"); lr.add_argument("--token", required=True)
+    pl.set_defaults(func=cmd_runlock)
+    ps = sub.add_parser("spec")
+    ps.add_argument("--format", choices=["mermaid", "html", "both"], default="both")
+    ps.set_defaults(func=cmd_spec)
+    return p
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    try:
+        args.func(args)
+    except (ValueError, KeyError, json.JSONDecodeError) as e:
+        sys.exit(f"error: {e}")
+
+
+if __name__ == "__main__":
+    main()

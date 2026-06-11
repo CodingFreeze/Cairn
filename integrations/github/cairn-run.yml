@@ -1,0 +1,125 @@
+# cairn-run.yml — headless Cairn reconciler run in GitHub Actions.
+# Factory parity: `droid exec` headless CI execution (capability map §6, P0 gap).
+#
+# SETUP: copy this file into your repo at .github/workflows/cairn-run.yml
+#   1. Add an `ANTHROPIC_API_KEY` repository secret (Settings → Secrets → Actions).
+#   2. Repo Settings → Actions → General → Workflow permissions:
+#      enable "Allow GitHub Actions to create and approve pull requests".
+#   3. Your repo must already contain a planned `.cairn/` board (run /cairn-plan
+#      locally and commit it). The CI run only consumes ready tickets.
+#
+# SECURITY MODEL
+#   - Trigger is workflow_dispatch (maintainer-initiated) or an opt-in schedule.
+#     Never wire this to pull_request / issue_comment events — that would hand
+#     the agent untrusted input with write credentials.
+#   - HARD RULE: no GitHub context value is ever interpolated into a `run:`
+#     script. Everything (inputs, github.*) flows through `env:` indirection so
+#     a hostile value is inert shell data, never shell code.
+#   - The agent NEVER pushes to the base branch. All changes land on a
+#     `cairn/ci-run-<run_number>` branch behind a PR — humans stay the merge gate.
+#   - SUPPLY CHAIN: pin third-party actions to full commit SHAs before
+#     production use, e.g.:
+#       actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+#     Mutable tags (@v5) are shown here only for template readability.
+
+name: cairn-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base branch the reconciler merges into"
+        required: false
+        default: "main"
+        type: string
+  # Always-on / scheduled runs (Factory `interval` parity). Uncomment to enable.
+  # The concurrency group below guarantees a scheduled run never overlaps a
+  # manual one (mirrors `cairn run-lock` for the CI surface).
+  # schedule:
+  #   - cron: "0 6 * * 1-5"   # 06:00 UTC, weekdays
+
+# One run at a time, ever — CI-level mirror of cairn's single-run lock.
+# queued runs wait instead of cancelling (a half-finished reconciler pass
+# should complete; the board is the durable queue for whatever remains).
+concurrency:
+  group: cairn-run
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # push the cairn/ci-run-* branch
+  pull-requests: write   # open the results PR
+
+jobs:
+  cairn-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # PIN to a commit SHA in production (see header).
+      - name: Checkout (full history — the reconciler rebases worktrees on base)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate base input
+        # inputs.base is maintainer-supplied, but validate anyway: it is passed
+        # to git and into the agent prompt. env indirection + strict allowlist.
+        env:
+          CAIRN_BASE: ${{ inputs.base || 'main' }}
+        run: |
+          if ! printf '%s' "$CAIRN_BASE" | grep -Eq '^[A-Za-z0-9._/-]+$'; then
+            echo "::error::base '$CAIRN_BASE' contains characters outside [A-Za-z0-9._/-]"
+            exit 1
+          fi
+          # The charset alone still admits traversal-ish ('..') and dot-leading
+          # names; reject them so the value is safe both as a git ref AND as
+          # prompt content for the agent below.
+          case "$CAIRN_BASE" in
+            .*|*..*|*.lock|*/.*) echo "::error::base '$CAIRN_BASE' rejected (dots/.lock pattern)"; exit 1 ;;
+          esac
+          git rev-parse --verify --end-of-options "refs/remotes/origin/${CAIRN_BASE}" >/dev/null
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Cairn reconciler (headless)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CAIRN_BASE: ${{ inputs.base || 'main' }}
+        # acceptEdits: file edits auto-approved; everything else stays inside
+        # the explicit tool allowlist below. No WebFetch/WebSearch — the run is
+        # network-silent beyond the model API. Task is required for the
+        # implementer/reviewer/tester subagent dispatches.
+        # NOTE: ${CAIRN_BASE} reaches the agent PROMPT (not just git). The
+        # validation step above (charset + dot-pattern rejection + ref
+        # existence on origin) runs unconditionally before this step — keep it
+        # that way if you edit this workflow.
+        run: |
+          claude -p "/cairn-run --base ${CAIRN_BASE}" \
+            --permission-mode acceptEdits \
+            --allowedTools "Task,Bash,Read,Edit,Write,Glob,Grep" \
+            --output-format stream-json --verbose \
+          | tee cairn-ci-transcript.jsonl
+
+      - name: Open PR with board/vault/code changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAIRN_BASE: ${{ inputs.base || 'main' }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          rm -f cairn-ci-transcript.jsonl
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes produced by this run — nothing to PR."
+            exit 0
+          fi
+          BRANCH="cairn/ci-run-${RUN_NUMBER}"
+          git checkout -b "$BRANCH"
+          git -c user.name="cairn-ci" -c user.email="cairn-ci@users.noreply.github.com" \
+            commit -m "chore(cairn): headless run ${RUN_NUMBER} — board/vault/code updates"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base "$CAIRN_BASE" \
+            --head "$BRANCH" \
+            --title "Cairn headless run #${RUN_NUMBER}" \
+            --body "Automated \`/cairn-run\` pass. Board/vault state and any merged ticket work are on this branch — review before merging. Run log: ${RUN_URL}"
