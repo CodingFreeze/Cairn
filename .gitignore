@@ -9,3 +9,6 @@ venv/
 # cairn runtime state in consumer repos (never ship from here)
 .cairn/worktrees/
 .cairn/run.lock
+# eval run outputs — committed deliberately when publishing, never by default
+evals/results/*.json
+!evals/results/.gitkeep
