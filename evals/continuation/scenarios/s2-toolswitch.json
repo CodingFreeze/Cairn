@@ -1,0 +1,23 @@
+{
+  "id": "s2-toolswitch",
+  "title": "Webhook relay (4 tickets), handoff to a different tool",
+  "task_family": "webhook-relay",
+  "fixture": {
+    "files": {
+      "README.md": "# webhook-relay\n\nReceives webhooks, verifies signatures, fans out to subscribers.\n",
+      "relay/__init__.py": ""
+    }
+  },
+  "tickets": [
+    {"id": "T01", "title": "signature verification (hmac)", "depends_on": [], "files_owned": ["relay/verify.py"]},
+    {"id": "T02", "title": "subscriber registry", "depends_on": [], "files_owned": ["relay/registry.py"]},
+    {"id": "T03", "title": "fanout dispatcher with retries", "depends_on": ["T01", "T02"], "files_owned": ["relay/dispatch.py"]},
+    {"id": "T04", "title": "delivery log + replay endpoint", "depends_on": ["T03"], "files_owned": ["relay/replay.py"]}
+  ],
+  "sessions": [
+    {"n": 1, "kind": "work", "complete_through": ["T01", "T02"], "emit_handoff": true, "kill_after": true},
+    {"n": 2, "kind": "resume", "context": "handoff-only", "complete_through": ["T03", "T04"]}
+  ],
+  "distractor": null,
+  "checks": {"forbid_replanning": true, "handoff_only_resume": true}
+}
