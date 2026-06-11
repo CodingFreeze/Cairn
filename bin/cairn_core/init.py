@@ -9,6 +9,8 @@ from cairn_core.safepath import (
     assert_safe_root,
     ensure_within,
     safe_mkdir,
+    safe_open_append,
+    safe_open_read,
     safe_open_write_create,
 )
 
@@ -43,6 +45,25 @@ _GI_BASE = [
 # Stack-specific build dirs, added only when the manifest is present so we never
 # ignore a legitimately-named source dir in an unrelated stack.
 _GI_STACK = {"Cargo.toml": ["/target/"]}
+
+# A cairn-managed .gitattributes INSIDE .cairn/ (patterns are relative to it).
+# Vault + handoff files are append-only journals: when two team clones each add
+# entries and the branches merge, union keeps BOTH sides instead of raising a
+# textual conflict. board.jsonl is deliberately NOT union: union would
+# concatenate both sides' lines and manufacture duplicate ticket ids, which
+# read_board fails closed on — a board conflict must surface as a REAL conflict
+# (one writer wins, then `cairn board doctor` repairs any merge debris) rather
+# than silently merging into a corrupt control plane.
+_GA_BEGIN = "# >>> cairn managed (auto-added by `cairn init`) >>>"
+_GA_END = "# <<< cairn managed <<<"
+_GA_LINES = [
+    "# Append-only journals: union-merge keeps both clones' entries.",
+    "# board.jsonl is deliberately NOT union — union would manufacture",
+    "# duplicate ticket ids, which read_board fails closed on. Board",
+    "# conflicts must surface as real conflicts (`cairn board doctor`).",
+    "vault/*.md merge=union",
+    "handoff/*.md merge=union",
+]
 
 _GOAL_TEMPLATE = """# Project goal
 
@@ -102,6 +123,32 @@ def _scaffold_gitignore(target):
         fh.write(block)
 
 
+def _scaffold_gitattributes(cairn):
+    """Ensure .cairn/.gitattributes carries the cairn-managed union-merge block.
+
+    Same idempotent, additive, marker-fenced contract as _scaffold_gitignore,
+    but the file lives INSIDE .cairn so all I/O goes through the dir-fd-anchored
+    safepath helpers (a planted symlinked leaf or parent is refused at the fd
+    level). A missing file is created fresh; an existing file gets the managed
+    block appended only when absent; operator rules are never clobbered.
+    """
+    ga = Path(cairn) / ".gitattributes"
+    block = _GA_BEGIN + "\n" + "\n".join(_GA_LINES) + "\n" + _GA_END + "\n"
+    if os.path.lexists(str(ga)):
+        # safe_open_read refuses a symlinked leaf (O_NOFOLLOW) so a planted
+        # symlink can neither be read through nor appended through.
+        with safe_open_read(cairn, ga) as fh:
+            existing = fh.read()
+        if _GA_BEGIN in existing:
+            return  # already managed — idempotent
+        sep = "" if (not existing or existing.endswith("\n")) else "\n"
+        with safe_open_append(cairn, ga) as fh:  # append mode cannot clobber
+            fh.write(sep + "\n" + block)
+        return
+    with safe_open_write_create(cairn, ga) as fh:
+        fh.write(block)
+
+
 def detect_mode(target):
     target = Path(target)
     if (target / ".git").exists():
@@ -153,4 +200,5 @@ def scaffold(target, mode, templates_dir, goal=None):
         # Persist the seed goal into the vault; /cairn-plan owns and refines it.
         _write_if_absent(cairn, cairn / "vault" / "goal.md", _GOAL_TEMPLATE.format(goal=goal))
     _scaffold_gitignore(target)
+    _scaffold_gitattributes(cairn)
     return cairn
